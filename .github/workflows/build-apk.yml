@@ -13,11 +13,93 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unzip Android source
+      - name: Find and unzip Android source
         run: |
           rm -rf source
           mkdir source
-          unzip JaneAIAndroidSource_native_voice_bridge.zip -d source
+
+          if [ -f JaneAIAndroidSource_native_voice_bridge.zip ]; then
+            unzip JaneAIAndroidSource_native_voice_bridge.zip -d source
+          elif [ -f JaneAIAndroidSource_voice_fixed.zip ]; then
+            unzip JaneAIAndroidSource_voice_fixed.zip -d source
+          elif [ -f JaneAIAndroidSource_with_render_url.zip ]; then
+            unzip JaneAIAndroidSource_with_render_url.zip -d source
+          else
+            echo "No Android source ZIP found."
+            ls -la
+            exit 1
+          fi
+
+      - name: Patch Jane UI
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          html_path = Path("source/app/src/main/assets/index.html")
+          html = html_path.read_text(encoding="utf-8")
+
+          # Remove the extra action buttons and tip text under Send
+          html = re.sub(
+              r'\n\s*<div class="actions">.*?</div>\s*\n\s*<div class="microcopy">Tip: press Enter to send, or Shift\+Enter for a new line\.</div>',
+              "",
+              html,
+              flags=re.S
+          )
+
+          # Remove JS constants for deleted buttons
+          html = re.sub(
+              r'\n\s*const stopBtn = document\.getElementById\("stopBtn"\);'
+              r'\n\s*const ideaBtn = document\.getElementById\("ideaBtn"\);'
+              r'\n\s*const draftBtn = document\.getElementById\("draftBtn"\);'
+              r'\n\s*const planBtn = document\.getElementById\("planBtn"\);',
+              "",
+              html
+          )
+
+          # Remove event listeners for deleted buttons
+          html = re.sub(
+              r'\n\s*stopBtn\.addEventListener\("click", \(\) => \{.*?\}\);',
+              "",
+              html,
+              flags=re.S
+          )
+          html = re.sub(
+              r'\n\s*ideaBtn\.addEventListener\("click", \(\) => \{.*?\}\);',
+              "",
+              html,
+              flags=re.S
+          )
+          html = re.sub(
+              r'\n\s*draftBtn\.addEventListener\("click", \(\) => \{.*?\}\);',
+              "",
+              html,
+              flags=re.S
+          )
+          html = re.sub(
+              r'\n\s*planBtn\.addEventListener\("click", \(\) => \{.*?\}\);',
+              "",
+              html,
+              flags=re.S
+          )
+
+          # Change Jane's introduce-yourself response
+          old_intro_1 = 'return "I’m Jane — a polished assistant experience designed to help with quick writing, planning, and conversational support.";'
+          old_intro_2 = 'return "I\\’m Jane — a polished assistant experience designed to help with quick writing, planning, and conversational support.";'
+          new_intro = 'return "I\\’m Jane, C.J.\\’s personal AI companion.";'
+
+          html = html.replace(old_intro_1, new_intro)
+          html = html.replace(old_intro_2, new_intro)
+
+          # Safety fallback: replace any introduce-yourself return containing "polished assistant experience"
+          html = re.sub(
+              r'return\s+"I[’\\\']m Jane[^"]*polished assistant experience[^"]*";',
+              new_intro,
+              html
+          )
+
+          html_path.write_text(html, encoding="utf-8")
+          PY
 
       - name: Set up Java
         uses: actions/setup-java@v4
