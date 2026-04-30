@@ -17,7 +17,7 @@ jobs:
         run: |
           rm -rf source
           mkdir source
-          unzip JaneAIAndroidSource_final_ui_bugfix.zip -d source
+          unzip JaneAIAndroidSource_compact_home_ui.zip -d source
 
       - name: Set up Java
         uses: actions/setup-java@v4
