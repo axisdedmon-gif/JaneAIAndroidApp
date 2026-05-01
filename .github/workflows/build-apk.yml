@@ -17,7 +17,7 @@ jobs:
         run: |
           rm -rf source
           mkdir source
-          unzip JaneAIAndroidSource_travel_live_redesign_REBUILT.zip -d source
+          unzip JaneAIAndroidSource_orientation_dialog_fix.zip -d source
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -37,4 +37,3 @@ jobs:
         with:
           name: JaneAI-debug-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
-``` [❶](code://python)
