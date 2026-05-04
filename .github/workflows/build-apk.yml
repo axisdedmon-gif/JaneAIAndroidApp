@@ -17,7 +17,7 @@ jobs:
         run: |
           rm -rf source
           mkdir source
-          unzip JaneAIAndroidSource_native_filament_hologram_v1.zip -d source
+          unzip JaneAIAndroidSource_native_filament_hologram_v1_androidx_fix.zip -d source
 
       - name: Set up Java
         uses: actions/setup-java@v4
