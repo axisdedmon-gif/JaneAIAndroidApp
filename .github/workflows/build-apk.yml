@@ -17,7 +17,7 @@ jobs:
         run: |
           rm -rf source
           mkdir source
-          unzip JaneAIAndroidSource_static_glb_home_v8_icon_resource_fix.zip -d source
+          unzip JaneAIAndroidSource_static_glb_home_v9_no_maps_icon_padding.zip -d source
 
       - name: Set up Java
         uses: actions/setup-java@v4
