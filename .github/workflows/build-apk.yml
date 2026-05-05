@@ -18,13 +18,13 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v22_direct_system_tts.zip ]; then
+          if [ -f JaneAIAndroidSource_static_glb_home_v23_paid_voice_restore.zip ]; then
             echo "Found source zip directly."
-            unzip JaneAIAndroidSource_static_glb_home_v22_direct_system_tts.zip -d source
-          elif [ -f JaneStaticGLBHomeV22DirectSystemTtsPackage.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v23_paid_voice_restore.zip -d source
+          elif [ -f JaneStaticGLBHomeV23PaidVoiceRestorePackage.zip ]; then
             echo "Found outer package zip. Extracting inner source zip."
-            unzip JaneStaticGLBHomeV22DirectSystemTtsPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v22_direct_system_tts.zip -d source
+            unzip JaneStaticGLBHomeV23PaidVoiceRestorePackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v23_paid_voice_restore.zip -d source
           else
             echo "Could not find Jane source zip or outer package zip."
             echo "Files in repo root:"
