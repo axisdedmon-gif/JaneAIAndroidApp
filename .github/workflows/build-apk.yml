@@ -17,7 +17,7 @@ jobs:
         run: |
           rm -rf source
           mkdir source
-          unzip JaneAIAndroidSource_static_glb_home_v5_no_history_dialog_neckup.zip -d source
+          unzip JaneAIAndroidSource_static_glb_home_v6_dialog_portraits.zip -d source
 
       - name: Set up Java
         uses: actions/setup-java@v4
