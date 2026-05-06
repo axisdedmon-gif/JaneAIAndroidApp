@@ -18,17 +18,13 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v28_asset_voice_bridge_fix.zip ]; then
+          if [ -f JaneAIAndroidSource_static_glb_home_v29_asset_stream_cache_hard_timer.zip ]; then
             echo "Found source zip directly."
-            unzip JaneAIAndroidSource_static_glb_home_v28_asset_voice_bridge_fix.zip -d source
-          elif [ -f Jane_V28B_asset_voice_bridge_verified.zip ]; then
-            echo "Found outer verified package zip. Extracting inner source zip."
-            unzip Jane_V28B_asset_voice_bridge_verified.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v28_asset_voice_bridge_fix.zip -d source
-          elif [ -f JaneStaticGLBHomeV28AssetVoiceBridgeFixPackage.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v29_asset_stream_cache_hard_timer.zip -d source
+          elif [ -f JaneStaticGLBHomeV29AssetStreamCacheHardTimerPackage.zip ]; then
             echo "Found outer package zip. Extracting inner source zip."
-            unzip JaneStaticGLBHomeV28AssetVoiceBridgeFixPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v28_asset_voice_bridge_fix.zip -d source
+            unzip JaneStaticGLBHomeV29AssetStreamCacheHardTimerPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v29_asset_stream_cache_hard_timer.zip -d source
           else
             echo "Could not find Jane source zip or outer package zip."
             echo "Files in repo root:"
@@ -53,7 +49,7 @@ jobs:
         working-directory: source
         run: python3 scripts/generate_startup_voice_assets.py
 
-      - name: Verify startup voice assets and bridge patch
+      - name: Verify startup voice assets and playback patch
         working-directory: source
         run: |
           count=$(find app/src/main/assets/startup_voice -name '*.mp3' | wc -l)
@@ -63,6 +59,8 @@ jobs:
             exit 1
           fi
           grep -q "MainActivity.this.playAssetVoice(assetPath)" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "getAssets().open(assetPath)" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "hardMs" app/src/main/assets/index.html
 
       - name: Set up Java
         uses: actions/setup-java@v4
