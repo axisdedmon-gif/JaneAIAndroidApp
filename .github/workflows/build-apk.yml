@@ -18,13 +18,13 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v32_voice_owner_fix.zip ]; then
+          if [ -f JaneAIAndroidSource_static_glb_home_v33_restore_dialog_voice.zip ]; then
             echo "Found source zip directly."
-            unzip JaneAIAndroidSource_static_glb_home_v32_voice_owner_fix.zip -d source
-          elif [ -f JaneStaticGLBHomeV32VoiceOwnerFixPackage.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v33_restore_dialog_voice.zip -d source
+          elif [ -f JaneStaticGLBHomeV33RestoreDialogVoicePackage.zip ]; then
             echo "Found outer package zip. Extracting inner source zip."
-            unzip JaneStaticGLBHomeV32VoiceOwnerFixPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v32_voice_owner_fix.zip -d source
+            unzip JaneStaticGLBHomeV33RestoreDialogVoicePackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v33_restore_dialog_voice.zip -d source
           else
             echo "Could not find Jane source zip or outer package zip."
             echo "Files in repo root:"
@@ -32,12 +32,12 @@ jobs:
             exit 1
           fi
 
-      - name: Verify V32 voice and owner patch
+      - name: Verify V33 dialog voice restore
         working-directory: source
         run: |
-          grep -q "Jane is thinking" app/src/main/assets/index.html
-          grep -q "revealTimer" app/src/main/assets/index.html
-          grep -q "state.ownerVerified=true" app/src/main/assets/index.html
+          grep -q "showDialog(reply,pose)" app/src/main/assets/index.html
+          grep -q "speak(reply" app/src/main/assets/index.html
+          ! grep -q "janeSpeechWatchdog" app/src/main/assets/index.html
           grep -q "Launch Jane" app/src/main/assets/index.html
 
       - name: Set up Java
