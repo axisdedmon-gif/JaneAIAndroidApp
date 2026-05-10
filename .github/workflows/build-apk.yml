@@ -18,13 +18,13 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v34_dialog_scroll_box.zip ]; then
+          if [ -f JaneAIAndroidSource_static_glb_home_v35_pdf_knowledge_memory.zip ]; then
             echo "Found source zip directly."
-            unzip JaneAIAndroidSource_static_glb_home_v34_dialog_scroll_box.zip -d source
-          elif [ -f JaneStaticGLBHomeV34DialogScrollBoxPackage.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v35_pdf_knowledge_memory.zip -d source
+          elif [ -f JaneStaticGLBHomeV35PdfKnowledgeMemoryPackage.zip ]; then
             echo "Found outer package zip. Extracting inner source zip."
-            unzip JaneStaticGLBHomeV34DialogScrollBoxPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v34_dialog_scroll_box.zip -d source
+            unzip JaneStaticGLBHomeV35PdfKnowledgeMemoryPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v35_pdf_knowledge_memory.zip -d source
           else
             echo "Could not find Jane source zip or outer package zip."
             echo "Files in repo root:"
@@ -32,13 +32,14 @@ jobs:
             exit 1
           fi
 
-      - name: Verify V34 dialog scroll patch
+      - name: Verify V35 PDF knowledge memory patch
         working-directory: source
         run: |
-          grep -q "V34: dialog text box scroll fix only" app/src/main/assets/index.html
-          grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
-          grep -q "showDialog(reply,pose)" app/src/main/assets/index.html
-          grep -q "Launch Jane" app/src/main/assets/index.html
+          grep -q "Permanent imported knowledge library" app/src/main/assets/index.html
+          grep -q "importKnowledgeFromFile" app/src/main/assets/index.html
+          grep -q "createKnowledgePackFromFile" app/src/main/assets/index.html
+          grep -q "Knowledge imported permanently" app/src/main/assets/index.html
+          grep -q "under 18MB" app/src/main/java/com/example/janeai/MainActivity.java
           ! grep -q "janeSpeechWatchdog" app/src/main/assets/index.html
 
       - name: Set up Java
