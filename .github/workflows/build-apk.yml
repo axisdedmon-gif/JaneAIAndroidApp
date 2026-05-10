@@ -18,13 +18,13 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v36_glb_material_cleanup.zip ]; then
+          if [ -f JaneAIAndroidSource_static_glb_home_v37_glb_texture_skin_cleanup.zip ]; then
             echo "Found source zip directly."
-            unzip JaneAIAndroidSource_static_glb_home_v36_glb_material_cleanup.zip -d source
-          elif [ -f JaneStaticGLBHomeV36GlbMaterialCleanupPackage.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v37_glb_texture_skin_cleanup.zip -d source
+          elif [ -f JaneStaticGLBHomeV37GlbTextureSkinCleanupPackage.zip ]; then
             echo "Found outer package zip. Extracting inner source zip."
-            unzip JaneStaticGLBHomeV36GlbMaterialCleanupPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v36_glb_material_cleanup.zip -d source
+            unzip JaneStaticGLBHomeV37GlbTextureSkinCleanupPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v37_glb_texture_skin_cleanup.zip -d source
           else
             echo "Could not find Jane source zip or outer package zip."
             echo "Files in repo root:"
@@ -32,10 +32,10 @@ jobs:
             exit 1
           fi
 
-      - name: Verify V36 GLB material cleanup patch
+      - name: Verify V37 GLB texture cleanup patch
         working-directory: source
         run: |
-          grep -q "V36: 3D model artifact cleanup only" app/src/main/assets/index.html
+          grep -q "V37: 3D texture scar cleanup support only" app/src/main/assets/index.html
           grep -q "Permanent imported knowledge library" app/src/main/assets/index.html
           grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
           ! grep -q "janeSpeechWatchdog" app/src/main/assets/index.html
