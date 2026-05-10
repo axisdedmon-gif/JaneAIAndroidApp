@@ -18,13 +18,13 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v37_glb_texture_skin_cleanup.zip ]; then
+          if [ -f JaneAIAndroidSource_static_glb_home_v41_one_zip_safe_glb_compress.zip ]; then
             echo "Found source zip directly."
-            unzip JaneAIAndroidSource_static_glb_home_v37_glb_texture_skin_cleanup.zip -d source
-          elif [ -f JaneStaticGLBHomeV37GlbTextureSkinCleanupPackage.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v41_one_zip_safe_glb_compress.zip -d source
+          elif [ -f JaneStaticGLBHomeV41OneZipSafeGlbCompressPackage.zip ]; then
             echo "Found outer package zip. Extracting inner source zip."
-            unzip JaneStaticGLBHomeV37GlbTextureSkinCleanupPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v37_glb_texture_skin_cleanup.zip -d source
+            unzip JaneStaticGLBHomeV41OneZipSafeGlbCompressPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v41_one_zip_safe_glb_compress.zip -d source
           else
             echo "Could not find Jane source zip or outer package zip."
             echo "Files in repo root:"
@@ -32,14 +32,26 @@ jobs:
             exit 1
           fi
 
-      - name: Verify V37 GLB texture cleanup patch
+      - name: Verify V41 safe compressed original GLB
         working-directory: source
         run: |
-          grep -q "V37: 3D texture scar cleanup support only" app/src/main/assets/index.html
+          grep -q "V41: one-upload package using original GLB safely texture-compressed only" app/src/main/assets/index.html
+          test -f app/src/main/assets/jane_static_model_mobile_small.glb
+          size=$(stat -c%s app/src/main/assets/jane_static_model_mobile_small.glb)
+          echo "GLB size: $size"
+          if [ "$size" -lt 10000000 ]; then
+            echo "GLB unexpectedly small."
+            exit 1
+          fi
+          sha=$(sha256sum app/src/main/assets/jane_static_model_mobile_small.glb | awk '{print $1}')
+          echo "GLB sha256: $sha"
+          if [ "$sha" != "83e2030e4b1f34e5c94d1f8b001fd546d3c651b73e0ea5fee881fd9d806d266e" ]; then
+            echo "GLB hash mismatch."
+            exit 1
+          fi
           grep -q "Permanent imported knowledge library" app/src/main/assets/index.html
           grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
           ! grep -q "janeSpeechWatchdog" app/src/main/assets/index.html
-          test -n "$(find app/src/main/assets -name '*.glb' -print -quit)"
 
       - name: Set up Java
         uses: actions/setup-java@v4
