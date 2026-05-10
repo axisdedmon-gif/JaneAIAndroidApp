@@ -18,13 +18,13 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v35_pdf_knowledge_memory.zip ]; then
+          if [ -f JaneAIAndroidSource_static_glb_home_v36_glb_material_cleanup.zip ]; then
             echo "Found source zip directly."
-            unzip JaneAIAndroidSource_static_glb_home_v35_pdf_knowledge_memory.zip -d source
-          elif [ -f JaneStaticGLBHomeV35PdfKnowledgeMemoryPackage.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v36_glb_material_cleanup.zip -d source
+          elif [ -f JaneStaticGLBHomeV36GlbMaterialCleanupPackage.zip ]; then
             echo "Found outer package zip. Extracting inner source zip."
-            unzip JaneStaticGLBHomeV35PdfKnowledgeMemoryPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v35_pdf_knowledge_memory.zip -d source
+            unzip JaneStaticGLBHomeV36GlbMaterialCleanupPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v36_glb_material_cleanup.zip -d source
           else
             echo "Could not find Jane source zip or outer package zip."
             echo "Files in repo root:"
@@ -32,15 +32,14 @@ jobs:
             exit 1
           fi
 
-      - name: Verify V35 PDF knowledge memory patch
+      - name: Verify V36 GLB material cleanup patch
         working-directory: source
         run: |
+          grep -q "V36: 3D model artifact cleanup only" app/src/main/assets/index.html
           grep -q "Permanent imported knowledge library" app/src/main/assets/index.html
-          grep -q "importKnowledgeFromFile" app/src/main/assets/index.html
-          grep -q "createKnowledgePackFromFile" app/src/main/assets/index.html
-          grep -q "Knowledge imported permanently" app/src/main/assets/index.html
-          grep -q "under 18MB" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
           ! grep -q "janeSpeechWatchdog" app/src/main/assets/index.html
+          test -n "$(find app/src/main/assets -name '*.glb' -print -quit)"
 
       - name: Set up Java
         uses: actions/setup-java@v4
