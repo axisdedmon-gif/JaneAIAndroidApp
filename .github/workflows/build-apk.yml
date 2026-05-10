@@ -18,13 +18,13 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v30_simple_launch_screen.zip ]; then
+          if [ -f JaneAIAndroidSource_static_glb_home_v31_launch_button_fix.zip ]; then
             echo "Found source zip directly."
-            unzip JaneAIAndroidSource_static_glb_home_v30_simple_launch_screen.zip -d source
-          elif [ -f JaneStaticGLBHomeV30SimpleLaunchScreenPackage.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v31_launch_button_fix.zip -d source
+          elif [ -f JaneStaticGLBHomeV31LaunchButtonFixPackage.zip ]; then
             echo "Found outer package zip. Extracting inner source zip."
-            unzip JaneStaticGLBHomeV30SimpleLaunchScreenPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v30_simple_launch_screen.zip -d source
+            unzip JaneStaticGLBHomeV31LaunchButtonFixPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v31_launch_button_fix.zip -d source
           else
             echo "Could not find Jane source zip or outer package zip."
             echo "Files in repo root:"
@@ -32,12 +32,14 @@ jobs:
             exit 1
           fi
 
-      - name: Verify V30 simple launch screen patch
+      - name: Verify V31 launch button patch
         working-directory: source
         run: |
-          grep -q "V30: no startup voice" app/src/main/assets/index.html
+          grep -q "V31: no startup voice" app/src/main/assets/index.html
           grep -q "launchJaneButton" app/src/main/assets/index.html
           grep -q "Launch Jane" app/src/main/assets/index.html
+          grep -q "launchJaneFromGate" app/src/main/assets/index.html
+          grep -q "width:118px" app/src/main/assets/index.html
 
       - name: Set up Java
         uses: actions/setup-java@v4
