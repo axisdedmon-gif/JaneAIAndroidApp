@@ -18,24 +18,25 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v43_user_glb_latest.zip ]; then
-            unzip JaneAIAndroidSource_static_glb_home_v43_user_glb_latest.zip -d source
-          elif [ -f JaneStaticGLBHomeV43LatestUserGlbPackage.zip ]; then
-            unzip JaneStaticGLBHomeV43LatestUserGlbPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v43_user_glb_latest.zip -d source
+          if [ -f JaneAIAndroidSource_static_glb_home_v44_disable_normal_map.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v44_disable_normal_map.zip -d source
+          elif [ -f JaneStaticGLBHomeV44DisableNormalMapPackage.zip ]; then
+            unzip JaneStaticGLBHomeV44DisableNormalMapPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v44_disable_normal_map.zip -d source
           else
             ls -la
             exit 1
           fi
 
-      - name: Verify retained features and GLB
+      - name: Verify V44 retained features and GLB
         working-directory: source
         run: |
           grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
           grep -q "Permanent imported knowledge library" app/src/main/assets/index.html
           grep -q "Launch Jane" app/src/main/assets/index.html
+          grep -q "normal map disabled" app/src/main/assets/index.html
           sha=$(sha256sum app/src/main/assets/jane_static_model_mobile_small.glb | awk '{print $1}')
-          [ "$sha" = "0dca686d2f8ae6a8676446f24856ae7491ea91931eeb5e5d9806951304931604" ]
+          [ "$sha" = "57cce05b6d0099f84b54fdfed64d0bcb5d8ae7a7e013dad17a0f14640c83c07c" ]
 
       - name: Set up Java
         uses: actions/setup-java@v4
