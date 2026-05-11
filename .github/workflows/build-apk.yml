@@ -18,25 +18,26 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v44_disable_normal_map.zip ]; then
-            unzip JaneAIAndroidSource_static_glb_home_v44_disable_normal_map.zip -d source
-          elif [ -f JaneStaticGLBHomeV44DisableNormalMapPackage.zip ]; then
-            unzip JaneStaticGLBHomeV44DisableNormalMapPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v44_disable_normal_map.zip -d source
+          if [ -f JaneAIAndroidSource_static_glb_home_v45_clean_base_texture.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v45_clean_base_texture.zip -d source
+          elif [ -f JaneStaticGLBHomeV45CleanBaseTexturePackage.zip ]; then
+            unzip JaneStaticGLBHomeV45CleanBaseTexturePackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v45_clean_base_texture.zip -d source
           else
             ls -la
             exit 1
           fi
 
-      - name: Verify V44 retained features and GLB
+      - name: Verify V45 retained features and GLB
         working-directory: source
         run: |
           grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
           grep -q "Permanent imported knowledge library" app/src/main/assets/index.html
           grep -q "Launch Jane" app/src/main/assets/index.html
-          grep -q "normal map disabled" app/src/main/assets/index.html
+          grep -q "V45: same latest accepted app features" app/src/main/assets/index.html
+          ! grep -q "janeSpeechWatchdog" app/src/main/assets/index.html
           sha=$(sha256sum app/src/main/assets/jane_static_model_mobile_small.glb | awk '{print $1}')
-          [ "$sha" = "57cce05b6d0099f84b54fdfed64d0bcb5d8ae7a7e013dad17a0f14640c83c07c" ]
+          [ "$sha" = "26228e4cf14667c29d2603c0154335afc686a5c57db04835cf9b6e8a5228ee81" ]
 
       - name: Set up Java
         uses: actions/setup-java@v4
