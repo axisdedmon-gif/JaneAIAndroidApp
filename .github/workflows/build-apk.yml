@@ -13,38 +13,40 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V52 package
+      - name: Unpack Jane V53 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v52_model_load_portal_effect.zip ]; then
-            unzip JaneAIAndroidSource_v52_model_load_portal_effect.zip -d source
-          elif [ -f JaneV52ModelLoadPortalEffectPackage.zip ]; then
-            unzip JaneV52ModelLoadPortalEffectPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v52_model_load_portal_effect.zip -d source
+          if [ -f JaneAIAndroidSource_v53_owner_pdf_glb_fix.zip ]; then
+            unzip JaneAIAndroidSource_v53_owner_pdf_glb_fix.zip -d source
+          elif [ -f JaneV53OwnerPdfGlbFixPackage.zip ]; then
+            unzip JaneV53OwnerPdfGlbFixPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v53_owner_pdf_glb_fix.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V52 save point and model load patch
+      - name: Verify V53 targeted fixes
         working-directory: source
         run: |
           echo "=== model verification ==="
           find app/src/main/assets -name "*.glb" -print
           test "$(find app/src/main/assets -name "*.glb" | wc -l)" -eq 1
           test -f "app/src/main/assets/Jane_3D_Mobile_APK_Model_B.glb"
-          grep -q "Jane_3D_Mobile_APK_Model_B.glb" app/src/main/assets/index.html
-          ! grep -q "Jane_3D_Mobile_APK_Model_B.glb?v=" app/src/main/assets/index.html
+          grep -q "file:///android_asset/Jane_3D_Mobile_APK_Model_B.glb" app/src/main/assets/index.html
           ! grep -R "data:model/gltf-binary;base64" app/src/main/assets/index.html
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
 
-          echo "=== portal effect verification ==="
+          echo "=== V53 owner/pdf/background/portal checks ==="
+          grep -q "Deathcore101!!" app/src/main/assets/index.html
+          grep -q "v53-hardcoded-owner-phrase" app/src/main/assets/index.html
+          grep -q "v53-native-pdf-import" app/src/main/assets/index.html
+          grep -q "pickKnowledgeFile" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "v53-hologram-background-match" app/src/main/assets/index.html
           test -f "app/src/main/assets/jane_hologram_portal_floor.gif"
-          grep -q "janePortalFloor" app/src/main/assets/index.html
-          grep -q "jane_hologram_portal_floor.gif" app/src/main/assets/index.html
 
           echo "=== removed biometric verification ==="
           ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
