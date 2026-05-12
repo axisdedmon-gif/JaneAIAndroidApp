@@ -18,25 +18,39 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v47_new_dragon_model.zip ]; then
-            unzip JaneAIAndroidSource_static_glb_home_v47_new_dragon_model.zip -d source
-          elif [ -f JaneStaticGLBHomeV47NewDragonModelPackage.zip ]; then
-            unzip JaneStaticGLBHomeV47NewDragonModelPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v47_new_dragon_model.zip -d source
+          if [ -f JaneAIAndroidSource_static_glb_home_v48_model_b_purge.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v48_model_b_purge.zip -d source
+          elif [ -f JaneStaticGLBHomeV48ModelBPurgePackage.zip ]; then
+            unzip JaneStaticGLBHomeV48ModelBPurgePackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v48_model_b_purge.zip -d source
           else
             ls -la
             exit 1
           fi
 
-      - name: Verify V47 retained features and new GLB
+      - name: Verify V48 model purge and retained features
         working-directory: source
         run: |
+          echo "=== retained features ==="
           grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
           grep -q "Permanent imported knowledge library" app/src/main/assets/index.html
           grep -q "Launch Jane" app/src/main/assets/index.html
-          grep -q "V47: same latest accepted app features" app/src/main/assets/index.html
           ! grep -q "janeSpeechWatchdog" app/src/main/assets/index.html
-          sha=$(sha256sum app/src/main/assets/jane_static_model_mobile_small.glb | awk '{print $1}')
+
+          echo "=== model B checks ==="
+          find app/src/main/assets -name "*.glb" -print
+          test "$(find app/src/main/assets -name "*.glb" | wc -l)" -eq 1
+          test -f "app/src/main/assets/Jane_3D_Mobile_APK_Model_B.glb"
+          grep -q "Jane 3D Mobile APK Model B" app/src/main/assets/index.html
+          grep -q "Jane_3D_Mobile_APK_Model_B.glb" app/src/main/assets/index.html
+          ! grep -q "jane_static_model_mobile_small.glb" app/src/main/assets/index.html
+          ! grep -q "Meshy_AI_Kadi" app/src/main/assets/index.html
+
+          echo "=== biometric purge checks ==="
+          ! grep -R "USE_BIOMETRIC\|USE_FINGERPRINT\|BiometricPrompt\|fingerprint\|face verification\|confirmed user" app/src/main AndroidManifest.xml || true
+
+          sha=$(sha256sum "app/src/main/assets/Jane_3D_Mobile_APK_Model_B.glb" | awk '{print $1}')
+          echo "Model B sha256: $sha"
           [ "$sha" = "c4cb2e997e6575c30b589f120517dedef70ef78fba5da6fc1c55b0761c84027a" ]
 
       - name: Set up Java
