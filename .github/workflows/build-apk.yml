@@ -18,26 +18,26 @@ jobs:
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_static_glb_home_v46_aggressive_skin_clean.zip ]; then
-            unzip JaneAIAndroidSource_static_glb_home_v46_aggressive_skin_clean.zip -d source
-          elif [ -f JaneStaticGLBHomeV46AggressiveSkinCleanPackage.zip ]; then
-            unzip JaneStaticGLBHomeV46AggressiveSkinCleanPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_static_glb_home_v46_aggressive_skin_clean.zip -d source
+          if [ -f JaneAIAndroidSource_static_glb_home_v47_new_dragon_model.zip ]; then
+            unzip JaneAIAndroidSource_static_glb_home_v47_new_dragon_model.zip -d source
+          elif [ -f JaneStaticGLBHomeV47NewDragonModelPackage.zip ]; then
+            unzip JaneStaticGLBHomeV47NewDragonModelPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_static_glb_home_v47_new_dragon_model.zip -d source
           else
             ls -la
             exit 1
           fi
 
-      - name: Verify V46 retained features and GLB
+      - name: Verify V47 retained features and new GLB
         working-directory: source
         run: |
           grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
           grep -q "Permanent imported knowledge library" app/src/main/assets/index.html
           grep -q "Launch Jane" app/src/main/assets/index.html
-          grep -q "V46: same latest accepted app features" app/src/main/assets/index.html
+          grep -q "V47: same latest accepted app features" app/src/main/assets/index.html
           ! grep -q "janeSpeechWatchdog" app/src/main/assets/index.html
           sha=$(sha256sum app/src/main/assets/jane_static_model_mobile_small.glb | awk '{print $1}')
-          [ "$sha" = "cae8bc1c6e972532340e1cb920dab7a6c8638a2b4f972ad41fe28911515fac2b" ]
+          [ "$sha" = "c4cb2e997e6575c30b589f120517dedef70ef78fba5da6fc1c55b0761c84027a" ]
 
       - name: Set up Java
         uses: actions/setup-java@v4
