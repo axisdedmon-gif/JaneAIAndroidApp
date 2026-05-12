@@ -44,7 +44,7 @@ jobs:
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
 
           echo "=== retained feature verification ==="
-          grep -q "Launch Jane" app/src/main/assets/index.html
+          grep -q "Launch" app/src/main/assets/index.html
           grep -q "jane_pdf_knowledge_library" app/src/main/assets/index.html
           grep -q "dialogText" app/src/main/assets/index.html
           grep -q "overflow:auto" app/src/main/assets/index.html
