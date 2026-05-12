@@ -13,25 +13,29 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V53 package
+      - name: Unpack Jane V54 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v53_owner_pdf_glb_fix.zip ]; then
-            unzip JaneAIAndroidSource_v53_owner_pdf_glb_fix.zip -d source
-          elif [ -f JaneV53OwnerPdfGlbFixPackage.zip ]; then
-            unzip JaneV53OwnerPdfGlbFixPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v53_owner_pdf_glb_fix.zip -d source
+          if [ -f JaneAIAndroidSource_v54_bridge_picker_compile_fix.zip ]; then
+            unzip JaneAIAndroidSource_v54_bridge_picker_compile_fix.zip -d source
+          elif [ -f JaneV54BridgePickerCompileFixPackage.zip ]; then
+            unzip JaneV54BridgePickerCompileFixPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v54_bridge_picker_compile_fix.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V53 targeted fixes
+      - name: Verify V54 targeted compile fix
         working-directory: source
         run: |
+          echo "=== picker bridge compile fix ==="
+          grep -q "MainActivity.this.openJaneFilePicker()" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "V54 compile fix" app/src/main/java/com/example/janeai/MainActivity.java
+
           echo "=== model verification ==="
           find app/src/main/assets -name "*.glb" -print
           test "$(find app/src/main/assets -name "*.glb" | wc -l)" -eq 1
@@ -40,7 +44,7 @@ jobs:
           ! grep -R "data:model/gltf-binary;base64" app/src/main/assets/index.html
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
 
-          echo "=== V53 owner/pdf/background/portal checks ==="
+          echo "=== V53 retained fixes ==="
           grep -q "Deathcore101!!" app/src/main/assets/index.html
           grep -q "v53-hardcoded-owner-phrase" app/src/main/assets/index.html
           grep -q "v53-native-pdf-import" app/src/main/assets/index.html
