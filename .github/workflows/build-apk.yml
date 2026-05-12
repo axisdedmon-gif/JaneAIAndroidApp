@@ -13,41 +13,42 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack clean Jane package
+      - name: Unpack Jane V51 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_clean_v50_model_b_no_removed_remnants.zip ]; then
-            unzip JaneAIAndroidSource_clean_v50_model_b_no_removed_remnants.zip -d source
-          elif [ -f JaneCleanV50ModelBNoRemovedRemnantsPackage.zip ]; then
-            unzip JaneCleanV50ModelBNoRemovedRemnantsPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_clean_v50_model_b_no_removed_remnants.zip -d source
+          if [ -f JaneAIAndroidSource_v51_good_ui_model_b_clean.zip ]; then
+            unzip JaneAIAndroidSource_v51_good_ui_model_b_clean.zip -d source
+          elif [ -f JaneV51GoodUIModelBCleanPackage.zip ]; then
+            unzip JaneV51GoodUIModelBCleanPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v51_good_ui_model_b_clean.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify clean rebuild
+      - name: Verify V51 good UI and clean model
         working-directory: source
         run: |
-          echo "=== GLB verification ==="
+          echo "=== model verification ==="
           find app/src/main/assets -name "*.glb" -print
           test "$(find app/src/main/assets -name "*.glb" | wc -l)" -eq 1
           test -f "app/src/main/assets/Jane_3D_Mobile_APK_Model_B.glb"
-          grep -q "Jane 3D Mobile APK Model B" app/src/main/assets/index.html
           grep -q "Jane_3D_Mobile_APK_Model_B.glb" app/src/main/assets/index.html
-
-          echo "=== removed-remnant verification ==="
-          ! grep -R "BiometricPrompt\|DisabledBiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|fingerprint\|face verification\|confirmed user" app/src/main
+          grep -q "Jane 3D Mobile APK Model B" app/src/main/assets/index.html
+          ! grep -R "data:model/gltf-binary;base64" app/src/main/assets/index.html
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
 
-          echo "=== retained feature verification ==="
-          grep -q "Launch" app/src/main/assets/index.html
-          grep -q "jane_pdf_knowledge_library" app/src/main/assets/index.html
-          grep -q "dialogText" app/src/main/assets/index.html
-          grep -q "overflow:auto" app/src/main/assets/index.html
+          echo "=== removed biometric verification ==="
+          ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
+
+          echo "=== retained UI/feature verification ==="
+          grep -q "Launch Jane" app/src/main/assets/index.html
+          grep -q "applyV34DialogScrollFix" app/src/main/assets/index.html
+          grep -q "JaneReceiveFile" app/src/main/assets/index.html
+          grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
           sha=$(sha256sum "app/src/main/assets/Jane_3D_Mobile_APK_Model_B.glb" | awk '{print $1}')
           echo "Model B sha256: $sha"
