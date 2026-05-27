@@ -13,23 +13,23 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V60 package
+      - name: Unpack Jane V61 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v60_backend_safe_hologram_fit.zip ]; then
-            unzip JaneAIAndroidSource_v60_backend_safe_hologram_fit.zip -d source
-          elif [ -f JaneV60BackendSafeHologramFitPackage.zip ]; then
-            unzip JaneV60BackendSafeHologramFitPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v60_backend_safe_hologram_fit.zip -d source
+          if [ -f JaneAIAndroidSource_v61_meshy_studio_portal_seat.zip ]; then
+            unzip JaneAIAndroidSource_v61_meshy_studio_portal_seat.zip -d source
+          elif [ -f JaneV61MeshyStudioPortalSeatPackage.zip ]; then
+            unzip JaneV61MeshyStudioPortalSeatPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v61_meshy_studio_portal_seat.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V60 backend-safe provider and hologram fit
+      - name: Verify V61 Meshy Studio and portal seat
         working-directory: source
         run: |
           grep -q "v57-embedded-model-b-final" app/src/main/assets/index.html
@@ -37,11 +37,17 @@ jobs:
           grep -q "v58-offline-knowledge-engine" app/src/main/assets/index.html
           grep -q "JaneOfflineKnowledge" app/src/main/assets/index.html
           grep -q "v60-provider-backend-safe" app/src/main/assets/index.html
-          grep -q "v60-hologram-back-into-portal" app/src/main/assets/index.html
-          grep -q "models/gemini-3.1-flash-lite" app/src/main/assets/index.html
+          grep -q "v61-hologram-circle-seat" app/src/main/assets/index.html
+          grep -q "v61-meshy-studio-ui" app/src/main/assets/index.html
+          grep -q "3D Model Studio" app/src/main/assets/index.html
+          grep -q "Generate 3D Model" app/src/main/assets/index.html
+          grep -q "Auto Rigging" app/src/main/assets/index.html
+          grep -q "/meshy/text-to-3d" app/src/main/assets/index.html
+          grep -q "/meshy/image-to-3d" app/src/main/assets/index.html
+          grep -q "/meshy/rig" app/src/main/assets/index.html
           grep -q "Deathcore101!!" app/src/main/assets/index.html
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
-          ! grep -R "https://js.puter.com/v2/\|v59-puter-chat-image-provider\|v59-puter-image-generation-hook\|v59-hologram-fit-inside-portal" app/src/main
+          ! grep -R "https://js.puter.com/v2/\|v59-puter-chat-image-provider\|v59-puter-image-generation-hook\|v59-hologram-fit-inside-portal\|v60-hologram-back-into-portal" app/src/main
           ! grep -R "gemini-3.1-flash-lite-preview" app/src/main
           ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
