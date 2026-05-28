@@ -13,39 +13,54 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V63 package
+      - name: Unpack Jane V64 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v63_portal_seat_buttons_fit.zip ]; then
-            unzip JaneAIAndroidSource_v63_portal_seat_buttons_fit.zip -d source
-          elif [ -f JaneV63PortalSeatButtonsFitPackage.zip ]; then
-            unzip JaneV63PortalSeatButtonsFitPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v63_portal_seat_buttons_fit.zip -d source
+          if [ -f JaneAIAndroidSource_v64_tools_music_multiview_hud.zip ]; then
+            unzip JaneAIAndroidSource_v64_tools_music_multiview_hud.zip -d source
+          elif [ -f JaneV64ToolsMusicMultiviewHudPackage.zip ]; then
+            unzip JaneV64ToolsMusicMultiviewHudPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v64_tools_music_multiview_hud.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V63 portal seat and buttons fit
+      - name: Verify V64 tools music multiview HUD
         working-directory: source
         run: |
           grep -q "v57-embedded-model-b-final" app/src/main/assets/index.html
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
           grep -q "v58-offline-knowledge-engine" app/src/main/assets/index.html
-          grep -q "v61-meshy-studio-ui" app/src/main/assets/index.html
+          grep -q "JaneOfflineKnowledge" app/src/main/assets/index.html
+          grep -q "v64-hologram-hud-tools-css" app/src/main/assets/index.html
+          grep -q "v64-tools-meshy-music-engine" app/src/main/assets/index.html
+          grep -q "v64-owner-phrase-input-restore" app/src/main/assets/index.html
+          grep -q "feet-centered-head-near-top-rotation-plus-20" app/src/main/assets/index.html
+          grep -q "rotation-per-second" app/src/main/assets/index.html
+          grep -q "36deg" app/src/main/assets/index.html
+          grep -q "BIO MONITOR" app/src/main/assets/index.html
+          grep -q "VITALS" app/src/main/assets/index.html
           grep -q "3D Model Studio" app/src/main/assets/index.html
-          grep -q "Generate 3D Model" app/src/main/assets/index.html
+          grep -q "Music Studio" app/src/main/assets/index.html
+          grep -q "Image to 3D" app/src/main/assets/index.html
+          grep -q "Multi-view" app/src/main/assets/index.html
           grep -q "Auto Rigging" app/src/main/assets/index.html
-          grep -q "v63-model-seat-and-actions-css" app/src/main/assets/index.html
-          grep -q "v63-model-seat-and-actions" app/src/main/assets/index.html
-          grep -q "full-size-seated-in-ring" app/src/main/assets/index.html
+          grep -q "/meshy/image-to-3d" app/src/main/assets/index.html
+          grep -q "/meshy/rig" app/src/main/assets/index.html
+          grep -q "/music/cover" app/src/main/assets/index.html
+          grep -q "/music/style" app/src/main/assets/index.html
+          grep -q "/music/extend" app/src/main/assets/index.html
+          grep -q "gemini-2.5-flash" app/src/main/assets/index.html
+          grep -q "gemini-2.5-flash-image" app/src/main/assets/index.html
           grep -q "Deathcore101!!" app/src/main/assets/index.html
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
-          ! grep -R "https://js.puter.com/v2/\|v59-puter-chat-image-provider" app/src/main
-          ! grep -R "gemini-3.1-flash-lite-preview" app/src/main
+          ! grep -R "https://js.puter.com/v2/\|v59-puter-chat-image-provider\|v59-puter-image-generation-hook" app/src/main
+          ! grep -R "gemini-3.1-flash-lite-preview\|gemini-2.5-flash-image-preview" app/src/main
+          ! grep -R "Generate from Text\|janeMeshyStatus" app/src/main/assets/index.html
           ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
 
