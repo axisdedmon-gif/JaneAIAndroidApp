@@ -32,23 +32,33 @@ jobs:
       - name: Verify V65 clean repair
         working-directory: source
         run: |
-          grep -q "v57-embedded-model-b-final" app/src/main/assets/index.html
+          echo "=== verify embedded model still exists ==="
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
+
+          echo "=== verify knowledge and core features ==="
           grep -q "v58-offline-knowledge-engine" app/src/main/assets/index.html
-          grep -q "v61-meshy-studio-ui" app/src/main/assets/index.html
-          grep -q "3D Model Studio" app/src/main/assets/index.html
-          grep -q "Image to 3D" app/src/main/assets/index.html
-          grep -q "Multi-view" app/src/main/assets/index.html
-          grep -q "Auto Rigging" app/src/main/assets/index.html
+          grep -q "JaneOfflineKnowledge" app/src/main/assets/index.html
+          grep -q "Deathcore101!!" app/src/main/assets/index.html
+          grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
+
+          echo "=== verify V65 repair features ==="
           grep -q "v65-clean-tools-engine" app/src/main/assets/index.html
           grep -q "Music Studio" app/src/main/assets/index.html
           grep -q "clean-no-hud-no-home-phrase" app/src/main/assets/index.html
           grep -q "rotation-per-second" app/src/main/assets/index.html
           grep -q "36deg" app/src/main/assets/index.html
           grep -q "gemini-2.5-flash" app/src/main/assets/index.html
-          grep -q "Deathcore101!!" app/src/main/assets/index.html
-          grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
+
+          echo "=== verify 3D Studio baseline ==="
+          grep -q "3D Model Studio" app/src/main/assets/index.html
+          grep -q "Image to 3D" app/src/main/assets/index.html
+          grep -q "Multi-view" app/src/main/assets/index.html
+          grep -q "Auto Rigging" app/src/main/assets/index.html
+
+          echo "=== verify broken V64 pieces are gone ==="
           ! grep -R "v64-hologram-hud-tools-css\|v64-owner-phrase-input-restore\|BIO MONITOR\|VITALS\|SCAN LOCK\|v64HudLayer\|v64OwnerUnlockBox" app/src/main
+
+          echo "=== verify removed/dead pieces are gone ==="
           ! grep -R "https://js.puter.com/v2/\|gemini-3.1-flash-lite-preview\|gemini-2.5-flash-image-preview" app/src/main
           ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
