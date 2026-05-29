@@ -13,47 +13,51 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V65 package
+      - name: Unpack Jane V66 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v65_clean_repair_tools_music.zip ]; then
-            unzip JaneAIAndroidSource_v65_clean_repair_tools_music.zip -d source
-          elif [ -f JaneV65CleanRepairToolsMusicPackage.zip ]; then
-            unzip JaneV65CleanRepairToolsMusicPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v65_clean_repair_tools_music.zip -d source
+          if [ -f JaneAIAndroidSource_v66_model_up_only.zip ]; then
+            unzip JaneAIAndroidSource_v66_model_up_only.zip -d source
+          elif [ -f JaneV66ModelUpOnlyPackage.zip ]; then
+            unzip JaneV66ModelUpOnlyPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v66_model_up_only.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify package safety only
+      - name: Verify V66 model-up-only patch
         working-directory: source
         run: |
           echo "=== verify source structure ==="
           test -f app/src/main/assets/index.html
           test -f app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== verify embedded model still exists ==="
+          echo "=== verify embedded model and retained core features ==="
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
-
-          echo "=== verify core retained features ==="
           grep -q "v58-offline-knowledge-engine" app/src/main/assets/index.html
           grep -q "JaneOfflineKnowledge" app/src/main/assets/index.html
           grep -q "Deathcore101!!" app/src/main/assets/index.html
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== verify V65 cleanup marker ==="
+          echo "=== verify V65 retained cleanup/tools ==="
           grep -q "v65-clean-tools-engine" app/src/main/assets/index.html
+          grep -q "Music Studio" app/src/main/assets/index.html
           grep -q "clean-no-hud-no-home-phrase" app/src/main/assets/index.html
+          grep -q "rotation-per-second" app/src/main/assets/index.html
+          grep -q "36deg" app/src/main/assets/index.html
           grep -q "gemini-2.5-flash" app/src/main/assets/index.html
 
-          echo "=== verify broken V64 home-screen injections are gone ==="
-          ! grep -R "v64-hologram-hud-tools-css\|v64-owner-phrase-input-restore\|BIO MONITOR\|VITALS\|SCAN LOCK\|v64HudLayer\|v64OwnerUnlockBox" app/src/main
+          echo "=== verify V66 only moved model up ==="
+          grep -q "v66-model-up-only-css" app/src/main/assets/index.html
+          grep -q "transform:translateY(-9%)!important;" app/src/main/assets/index.html
+          grep -q "V66: model moved straight up only" app/src/main/assets/index.html
 
-          echo "=== verify dead/removed pieces are gone ==="
+          echo "=== verify broken/dead pieces are gone ==="
+          ! grep -R "v64-hologram-hud-tools-css\|v64-owner-phrase-input-restore\|BIO MONITOR\|VITALS\|SCAN LOCK\|v64HudLayer\|v64OwnerUnlockBox" app/src/main
           ! grep -R "https://js.puter.com/v2/\|gemini-3.1-flash-lite-preview\|gemini-2.5-flash-image-preview" app/src/main
           ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
