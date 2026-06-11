@@ -13,35 +13,36 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V67 package
+      - name: Unpack Jane V67B package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v67_webp_dialog_portraits.zip ]; then
-            unzip JaneAIAndroidSource_v67_webp_dialog_portraits.zip -d source
-          elif [ -f JaneV67WebpDialogPortraitsPackage.zip ]; then
-            unzip JaneV67WebpDialogPortraitsPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v67_webp_dialog_portraits.zip -d source
+          if [ -f JaneAIAndroidSource_v67b_transparent_webp_dialog_portraits.zip ]; then
+            unzip JaneAIAndroidSource_v67b_transparent_webp_dialog_portraits.zip -d source
+          elif [ -f JaneV67BTransparentWebpDialogPortraitsPackage.zip ]; then
+            unzip JaneV67BTransparentWebpDialogPortraitsPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v67b_transparent_webp_dialog_portraits.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V67 WebP dialog portraits
+      - name: Verify V67B transparent WebP dialog portraits
         working-directory: source
         run: |
           echo "=== verify source structure ==="
           test -f app/src/main/assets/index.html
           test -f app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== verify WebP portrait package ==="
+          echo "=== verify transparent WebP portrait package ==="
           test -f app/src/main/assets/docs/avatar_portrait_paths_webp.json
           test -d app/src/main/assets/dialog_portraits_webp
           find app/src/main/assets/dialog_portraits_webp -name "*.webp" | head -n 1 | grep -q ".webp"
-          grep -q "v67-webp-dialog-portrait-router" app/src/main/assets/index.html
+          grep -q "v67b-transparent-webp-dialog-portrait-router" app/src/main/assets/index.html
           grep -q "JaneWebpPortraitRouter" app/src/main/assets/index.html
+          grep -q "transparent: true" app/src/main/assets/index.html
           grep -q "docs/avatar_portrait_paths_webp.json" app/src/main/assets/index.html
           grep -q "dialog_portraits_webp" app/src/main/assets/index.html
 
