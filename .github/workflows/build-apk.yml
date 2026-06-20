@@ -13,62 +13,57 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V69 package
+      - name: Unpack Jane V70 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v69_active_vitals_icon_face_center.zip ]; then
-            unzip JaneAIAndroidSource_v69_active_vitals_icon_face_center.zip -d source
-          elif [ -f JaneV69ActiveVitalsIconFaceCenterPackage.zip ]; then
-            unzip JaneV69ActiveVitalsIconFaceCenterPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v69_active_vitals_icon_face_center.zip -d source
+          if [ -f JaneAIAndroidSource_v70_vitals_image3d_fix.zip ]; then
+            unzip JaneAIAndroidSource_v70_vitals_image3d_fix.zip -d source
+          elif [ -f JaneV70VitalsImage3DFixPackage.zip ]; then
+            unzip JaneV70VitalsImage3DFixPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v70_vitals_image3d_fix.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V69 active vitals and launcher icon
+      - name: Verify V70 vitals and Image to 3D fixes
         working-directory: source
         run: |
           echo "=== verify source structure ==="
           test -f app/src/main/assets/index.html
           test -f app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== verify launcher icon WebP assets exist ==="
+          echo "=== verify launcher icon WebP assets and no duplicates ==="
           test -f app/src/main/res/mipmap-mdpi/ic_launcher.webp
           test -f app/src/main/res/mipmap-hdpi/ic_launcher.webp
           test -f app/src/main/res/mipmap-xhdpi/ic_launcher.webp
           test -f app/src/main/res/mipmap-xxhdpi/ic_launcher.webp
           test -f app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp
-          test -f app/src/main/res/mipmap-mdpi/ic_launcher_round.webp
-          test -f app/src/main/res/mipmap-hdpi/ic_launcher_round.webp
-          test -f app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp
-          test -f app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp
-          test -f app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp
           test -f app/src/main/res/drawable/ic_launcher_foreground.webp
-          test -f app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
-          test -f app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
-
-          echo "=== verify duplicate launcher PNG files are gone ==="
           ! find app/src/main/res -path "*mipmap-*/ic_launcher.png" | grep -q .
           ! find app/src/main/res -path "*mipmap-*/ic_launcher_round.png" | grep -q .
           ! find app/src/main/res -path "*drawable/ic_launcher_foreground.png" | grep -q .
 
-          echo "=== verify active 4-per-side vitals HUD ==="
-          grep -q "v69-active-vitals-hud-css" app/src/main/assets/index.html
-          grep -q "v69-active-vitals-hud-overlay" app/src/main/assets/index.html
-          grep -q "janeVitalsHUD" app/src/main/assets/index.html
-          grep -q "72 BPM" app/src/main/assets/index.html
-          grep -q "99%" app/src/main/assets/index.html
-          grep -q "Calm" app/src/main/assets/index.html
-          grep -q "68%" app/src/main/assets/index.html
-          grep -q "98.6°F" app/src/main/assets/index.html
-          grep -q "Online" app/src/main/assets/index.html
-          grep -q "Strong" app/src/main/assets/index.html
-          grep -q "82%" app/src/main/assets/index.html
-          grep -q "v69WaveSlide" app/src/main/assets/index.html
+          echo "=== verify V70 5-per-side home-only vitals ==="
+          grep -q "v70-home-vitals-image3d-css" app/src/main/assets/index.html
+          grep -q "v70-home-vitals-image3d-fix" app/src/main/assets/index.html
+          grep -q "jane-overlay-open" app/src/main/assets/index.html
+          grep -q "Pressure" app/src/main/assets/index.html
+          grep -q "120/80" app/src/main/assets/index.html
+          grep -q "Sync" app/src/main/assets/index.html
+          grep -q "97%" app/src/main/assets/index.html
+          grep -q "jane-vital-orange" app/src/main/assets/index.html
+
+          echo "=== verify 3D Studio Image-to-3D only patch ==="
+          grep -q "v70ImageTo3DInput" app/src/main/assets/index.html
+          grep -q "/meshy/image-to-3d" app/src/main/assets/index.html
+          grep -q "image_base64" app/src/main/assets/index.html
+          grep -q "output_formats" app/src/main/assets/index.html
+          grep -q "v70-hide-status" app/src/main/assets/index.html
+          grep -q "v70-hidden-textgen" app/src/main/assets/index.html
 
           echo "=== verify retained features and unchanged GLB baseline ==="
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
@@ -82,7 +77,7 @@ jobs:
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
           echo "=== verify broken/dead pieces are gone ==="
-          ! grep -R "v68-vitals-hud-css\|v68-vitals-hud-overlay" app/src/main
+          ! grep -R "v69-active-vitals-hud-css\|v69-active-vitals-hud-overlay\|v68-vitals-hud-css\|v68-vitals-hud-overlay" app/src/main
           ! grep -R "https://js.puter.com/v2/\|gemini-3.1-flash-lite-preview\|gemini-2.5-flash-image-preview" app/src/main
           ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
