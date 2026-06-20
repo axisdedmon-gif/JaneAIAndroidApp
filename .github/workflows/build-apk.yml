@@ -13,43 +13,51 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V67B package
+      - name: Unpack Jane V68 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v67b_transparent_webp_dialog_portraits.zip ]; then
-            unzip JaneAIAndroidSource_v67b_transparent_webp_dialog_portraits.zip -d source
-          elif [ -f JaneV67BTransparentWebpDialogPortraitsPackage.zip ]; then
-            unzip JaneV67BTransparentWebpDialogPortraitsPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v67b_transparent_webp_dialog_portraits.zip -d source
+          if [ -f JaneAIAndroidSource_v68_vitals_hud_launcher_icon.zip ]; then
+            unzip JaneAIAndroidSource_v68_vitals_hud_launcher_icon.zip -d source
+          elif [ -f JaneV68VitalsHudLauncherIconPackage.zip ]; then
+            unzip JaneV68VitalsHudLauncherIconPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v68_vitals_hud_launcher_icon.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V67B transparent WebP dialog portraits
+      - name: Verify V68 vitals HUD and launcher icon
         working-directory: source
         run: |
           echo "=== verify source structure ==="
           test -f app/src/main/assets/index.html
           test -f app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== verify transparent WebP portrait package ==="
-          test -f app/src/main/assets/docs/avatar_portrait_paths_webp.json
-          test -d app/src/main/assets/dialog_portraits_webp
-          find app/src/main/assets/dialog_portraits_webp -name "*.webp" | head -n 1 | grep -q ".webp"
-          grep -q "v67b-transparent-webp-dialog-portrait-router" app/src/main/assets/index.html
-          grep -q "JaneWebpPortraitRouter" app/src/main/assets/index.html
-          grep -q "transparent: true" app/src/main/assets/index.html
-          grep -q "docs/avatar_portrait_paths_webp.json" app/src/main/assets/index.html
-          grep -q "dialog_portraits_webp" app/src/main/assets/index.html
+          echo "=== verify launcher icon replacement assets ==="
+          test -f app/src/main/res/mipmap-mdpi/ic_launcher.webp
+          test -f app/src/main/res/mipmap-hdpi/ic_launcher.webp
+          test -f app/src/main/res/mipmap-xhdpi/ic_launcher.webp
+          test -f app/src/main/res/mipmap-xxhdpi/ic_launcher.webp
+          test -f app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp
+          test -f app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+          test -f app/src/main/res/drawable/ic_launcher_foreground.png
 
-          echo "=== verify embedded model and retained core features ==="
+          echo "=== verify vitals HUD only ==="
+          grep -q "v68-vitals-hud-css" app/src/main/assets/index.html
+          grep -q "v68-vitals-hud-overlay" app/src/main/assets/index.html
+          grep -q "janeVitalsHUD" app/src/main/assets/index.html
+          grep -q "72 BPM" app/src/main/assets/index.html
+          grep -q "99%" app/src/main/assets/index.html
+          grep -q "98.6°F" app/src/main/assets/index.html
+          grep -q "Online" app/src/main/assets/index.html
+
+          echo "=== verify retained features ==="
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
           grep -q "v58-offline-knowledge-engine" app/src/main/assets/index.html
-          grep -q "JaneOfflineKnowledge" app/src/main/assets/index.html
+          grep -q "v67b-transparent-webp-dialog-portrait-router" app/src/main/assets/index.html
           grep -q "v66-model-up-only-css" app/src/main/assets/index.html
           grep -q "v65-clean-tools-engine" app/src/main/assets/index.html
           grep -q "rotation-per-second" app/src/main/assets/index.html
