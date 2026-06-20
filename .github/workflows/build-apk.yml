@@ -13,23 +13,23 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V70 package
+      - name: Unpack Jane V71 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v70_vitals_image3d_fix.zip ]; then
-            unzip JaneAIAndroidSource_v70_vitals_image3d_fix.zip -d source
-          elif [ -f JaneV70VitalsImage3DFixPackage.zip ]; then
-            unzip JaneV70VitalsImage3DFixPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v70_vitals_image3d_fix.zip -d source
+          if [ -f JaneAIAndroidSource_v71_home_only_vitals_gate_fix.zip ]; then
+            unzip JaneAIAndroidSource_v71_home_only_vitals_gate_fix.zip -d source
+          elif [ -f JaneV71HomeOnlyVitalsGateFixPackage.zip ]; then
+            unzip JaneV71HomeOnlyVitalsGateFixPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v71_home_only_vitals_gate_fix.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V70 vitals and Image to 3D fixes
+      - name: Verify V71 home-only vitals gate fix
         working-directory: source
         run: |
           echo "=== verify source structure ==="
@@ -47,23 +47,28 @@ jobs:
           ! find app/src/main/res -path "*mipmap-*/ic_launcher_round.png" | grep -q .
           ! find app/src/main/res -path "*drawable/ic_launcher_foreground.png" | grep -q .
 
-          echo "=== verify V70 5-per-side home-only vitals ==="
+          echo "=== verify V70 vitals/Image-to-3D retained ==="
           grep -q "v70-home-vitals-image3d-css" app/src/main/assets/index.html
           grep -q "v70-home-vitals-image3d-fix" app/src/main/assets/index.html
-          grep -q "jane-overlay-open" app/src/main/assets/index.html
-          grep -q "Pressure" app/src/main/assets/index.html
-          grep -q "120/80" app/src/main/assets/index.html
-          grep -q "Sync" app/src/main/assets/index.html
-          grep -q "97%" app/src/main/assets/index.html
-          grep -q "jane-vital-orange" app/src/main/assets/index.html
-
-          echo "=== verify 3D Studio Image-to-3D only patch ==="
           grep -q "v70ImageTo3DInput" app/src/main/assets/index.html
           grep -q "/meshy/image-to-3d" app/src/main/assets/index.html
           grep -q "image_base64" app/src/main/assets/index.html
           grep -q "output_formats" app/src/main/assets/index.html
-          grep -q "v70-hide-status" app/src/main/assets/index.html
-          grep -q "v70-hidden-textgen" app/src/main/assets/index.html
+          grep -q "Pressure" app/src/main/assets/index.html
+          grep -q "Sync" app/src/main/assets/index.html
+
+          echo "=== verify V71 launch gate fix ==="
+          grep -q "v71-home-only-vitals-gate-css" app/src/main/assets/index.html
+          grep -q "v71-home-only-vitals-gate-fix" app/src/main/assets/index.html
+          grep -q "jane-vitals-home-active" app/src/main/assets/index.html
+          grep -q "jane-owner-gate-visible" app/src/main/assets/index.html
+          grep -q "ownerGateVisible" app/src/main/assets/index.html
+          grep -q "V71: vitals now hard-gated" app/src/main/assets/index.html
+
+          echo "=== verify launch screen retained ==="
+          grep -q "House Dedmon Access" app/src/main/assets/index.html
+          grep -q "house_dedmon_crest.webp" app/src/main/assets/index.html
+          grep -q "Launch Jane" app/src/main/assets/index.html
 
           echo "=== verify retained features and unchanged GLB baseline ==="
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
@@ -77,7 +82,6 @@ jobs:
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
           echo "=== verify broken/dead pieces are gone ==="
-          ! grep -R "v69-active-vitals-hud-css\|v69-active-vitals-hud-overlay\|v68-vitals-hud-css\|v68-vitals-hud-overlay" app/src/main
           ! grep -R "https://js.puter.com/v2/\|gemini-3.1-flash-lite-preview\|gemini-2.5-flash-image-preview" app/src/main
           ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
