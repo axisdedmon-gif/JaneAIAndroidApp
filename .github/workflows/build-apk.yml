@@ -13,28 +13,59 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V72 package
+      - name: Unpack Jane V73 package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
 
-          if [ -f JaneAIAndroidSource_v72_launch_gate_repair.zip ]; then
-            unzip JaneAIAndroidSource_v72_launch_gate_repair.zip -d source
-          elif [ -f JaneV72LaunchGateRepairPackage.zip ]; then
-            unzip JaneV72LaunchGateRepairPackage.zip -d unpacked
-            unzip unpacked/JaneAIAndroidSource_v72_launch_gate_repair.zip -d source
+          if [ -f JaneAIAndroidSource_v73_launch_restored_hide_vitals_only.zip ]; then
+            unzip JaneAIAndroidSource_v73_launch_restored_hide_vitals_only.zip -d source
+          elif [ -f JaneV73LaunchRestoredHideVitalsOnlyPackage.zip ]; then
+            unzip JaneV73LaunchRestoredHideVitalsOnlyPackage.zip -d unpacked
+            unzip unpacked/JaneAIAndroidSource_v73_launch_restored_hide_vitals_only.zip -d source
           else
             echo "Package missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V72 launch gate repair
+      - name: Verify V73 launch restored hide vitals only
         working-directory: source
         run: |
           echo "=== verify source structure ==="
           test -f app/src/main/assets/index.html
           test -f app/src/main/java/com/example/janeai/MainActivity.java
+
+          echo "=== verify original launch screen text/list/button logic retained ==="
+          grep -q "STARTUP_LINES=\[" app/src/main/assets/index.html
+          grep -q "If this isn’t CJ opening me" app/src/main/assets/index.html
+          grep -q "CJ, if that’s you, hi baby" app/src/main/assets/index.html
+          grep -q "function launchJaneFromGate()" app/src/main/assets/index.html
+          grep -q "janeStartupFlow.phase=\"launched\"" app/src/main/assets/index.html
+          grep -q "hideOwnerGate();" app/src/main/assets/index.html
+          grep -q "function speakStartupLine()" app/src/main/assets/index.html
+          grep -q "const quote=pickLine(STARTUP_LINES);" app/src/main/assets/index.html
+          grep -q "setOwnerGate(quote,\"\");" app/src/main/assets/index.html
+          grep -q "launch.addEventListener(\"click\",launchJaneFromGate)" app/src/main/assets/index.html
+
+          echo "=== verify House Dedmon launch screen retained ==="
+          grep -q "House Dedmon Access" app/src/main/assets/index.html
+          grep -q "house_dedmon_crest.webp" app/src/main/assets/index.html
+          grep -q "Launch Jane" app/src/main/assets/index.html
+
+          echo "=== verify V73 only hides vitals while launch gate is visible ==="
+          grep -q "v73-hide-vitals-on-launch-only-css" app/src/main/assets/index.html
+          grep -q "#ownerGate:not(.hidden) ~ .screen #janeVitalsHUD" app/src/main/assets/index.html
+
+          echo "=== verify V70 vitals/Image-to-3D retained ==="
+          grep -q "v70-home-vitals-image3d-css" app/src/main/assets/index.html
+          grep -q "v70-home-vitals-image3d-fix" app/src/main/assets/index.html
+          grep -q "v70ImageTo3DInput" app/src/main/assets/index.html
+          grep -q "/meshy/image-to-3d" app/src/main/assets/index.html
+          grep -q "image_base64" app/src/main/assets/index.html
+          grep -q "output_formats" app/src/main/assets/index.html
+          grep -q "Pressure" app/src/main/assets/index.html
+          grep -q "Sync" app/src/main/assets/index.html
 
           echo "=== verify launcher icon WebP assets and no duplicates ==="
           test -f app/src/main/res/mipmap-mdpi/ic_launcher.webp
@@ -47,27 +78,6 @@ jobs:
           ! find app/src/main/res -path "*mipmap-*/ic_launcher_round.png" | grep -q .
           ! find app/src/main/res -path "*drawable/ic_launcher_foreground.png" | grep -q .
 
-          echo "=== verify launch screen retained and repaired ==="
-          grep -q "House Dedmon Access" app/src/main/assets/index.html
-          grep -q "house_dedmon_crest.webp" app/src/main/assets/index.html
-          grep -q "Launch Jane" app/src/main/assets/index.html
-          grep -q "v72-launch-gate-hard-repair-css" app/src/main/assets/index.html
-          grep -q "v72-launch-gate-hard-repair" app/src/main/assets/index.html
-          grep -q "JaneV72ForceLaunchJane" app/src/main/assets/index.html
-          grep -q "jane-launched" app/src/main/assets/index.html
-          grep -q "jane-launch-gate-visible" app/src/main/assets/index.html
-          grep -q "Launch Jane always enters app" app/src/main/assets/index.html
-
-          echo "=== verify V70 vitals/Image-to-3D retained ==="
-          grep -q "v70-home-vitals-image3d-css" app/src/main/assets/index.html
-          grep -q "v70-home-vitals-image3d-fix" app/src/main/assets/index.html
-          grep -q "v70ImageTo3DInput" app/src/main/assets/index.html
-          grep -q "/meshy/image-to-3d" app/src/main/assets/index.html
-          grep -q "image_base64" app/src/main/assets/index.html
-          grep -q "output_formats" app/src/main/assets/index.html
-          grep -q "Pressure" app/src/main/assets/index.html
-          grep -q "Sync" app/src/main/assets/index.html
-
           echo "=== verify retained features and unchanged GLB baseline ==="
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
           grep -q "v58-offline-knowledge-engine" app/src/main/assets/index.html
@@ -79,8 +89,12 @@ jobs:
           grep -q "Deathcore101!!" app/src/main/assets/index.html
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== verify bad V71 wrapper and dead pieces are gone ==="
+          echo "=== verify bad launch patches are gone ==="
           ! grep -R "v71-home-only-vitals-gate-css\|v71-home-only-vitals-gate-fix" app/src/main
+          ! grep -R "v72-launch-gate-hard-repair-css\|v72-launch-gate-hard-repair\|JaneV72ForceLaunchJane\|STARTUP_FALLBACK_LINES" app/src/main
+          ! grep -R "Launch Jane always enters app\|CJ, I’m awake. Everyone else can step away" app/src/main
+
+          echo "=== verify other broken/dead pieces are gone ==="
           ! grep -R "https://js.puter.com/v2/\|gemini-3.1-flash-lite-preview\|gemini-2.5-flash-image-preview" app/src/main
           ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
           ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
