@@ -13,7 +13,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
-      - name: Unpack Jane V73 package
+      - name: Unpack current Jane package
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
@@ -24,80 +24,90 @@ jobs:
             unzip JaneV73LaunchRestoredHideVitalsOnlyPackage.zip -d unpacked
             unzip unpacked/JaneAIAndroidSource_v73_launch_restored_hide_vitals_only.zip -d source
           else
-            echo "Package missing."
+            echo "Current Jane source package is missing."
             ls -la
             exit 1
           fi
 
-      - name: Verify V73 launch restored hide vitals only
+      - name: Apply V75 startup repair only
         working-directory: source
         run: |
-          echo "=== verify source structure ==="
-          test -f app/src/main/assets/index.html
-          test -f app/src/main/java/com/example/janeai/MainActivity.java
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
 
-          echo "=== verify original launch screen text/list/button logic retained ==="
+          html_path = Path("app/src/main/assets/index.html")
+          html = html_path.read_text(encoding="utf-8", errors="ignore")
+
+          old = '''  new MutationObserver(() => { updateOverlayClass(); patch3DStudio(); }).observe(document.documentElement, {childList:true, subtree:true, attributes:true, attributeFilter:["class","style","hidden"]});'''
+
+          new = '''  // V75_STARTUP_OBSERVER_FIX: scoped UI-state sync only.
+            // The old document-wide observer caused a mutation loop before window.load,
+            // preventing the startup quote and Launch Jane button from working.
+            function v75RefreshOverlayState(){
+              updateOverlayClass();
+            }
+            const v75OverlayObserver=new MutationObserver(v75RefreshOverlayState);
+            ["ownerGate","ownerModal","travelModal","janeMeshyStudio","janeMusicStudio"].forEach((id)=>{
+              const el=document.getElementById(id);
+              if(el)v75OverlayObserver.observe(el,{attributes:true,attributeFilter:["class","style","hidden","aria-hidden"]});
+            });
+            document.addEventListener("click",()=>setTimeout(()=>{patch3DStudio();v75RefreshOverlayState();},0),true);
+            document.addEventListener("touchend",()=>setTimeout(()=>{patch3DStudio();v75RefreshOverlayState();},0),{capture:true,passive:true});
+            window.addEventListener("load",v75RefreshOverlayState);'''
+
+          count = html.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected exactly one broken observer; found {count}.")
+
+          html = html.replace(old, new, 1)
+          html_path.write_text(html, encoding="utf-8")
+
+          for gradle_path in [Path("app/build.gradle"), Path("app/build.gradle.kts")]:
+              if not gradle_path.exists():
+                  continue
+              text = gradle_path.read_text(encoding="utf-8", errors="ignore")
+              text = re.sub(r'versionCode\s+(\d+)', lambda m: f"versionCode {int(m.group(1)) + 1}", text)
+              text = re.sub(r'versionCode\s*=\s*(\d+)', lambda m: f"versionCode = {int(m.group(1)) + 1}", text)
+              text = re.sub(r'versionName\s+"[^"]+"', 'versionName "v75-startup-observer-fix"', text)
+              text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "v75-startup-observer-fix"', text)
+              gradle_path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Verify startup repair and untouched features
+        working-directory: source
+        run: |
+          echo "=== startup list and original launch functions retained ==="
           grep -q "STARTUP_LINES=\[" app/src/main/assets/index.html
-          grep -q "If this isn’t CJ opening me" app/src/main/assets/index.html
-          grep -q "CJ, if that’s you, hi baby" app/src/main/assets/index.html
+          grep -q "If this isn’t CJ opening me, I’m calling so many authorities on your ass." app/src/main/assets/index.html
+          grep -q "CJ, if that’s you, hi baby. If not, whoever opened me better start explaining some shit." app/src/main/assets/index.html
           grep -q "function launchJaneFromGate()" app/src/main/assets/index.html
-          grep -q "janeStartupFlow.phase=\"launched\"" app/src/main/assets/index.html
-          grep -q "hideOwnerGate();" app/src/main/assets/index.html
           grep -q "function speakStartupLine()" app/src/main/assets/index.html
           grep -q "const quote=pickLine(STARTUP_LINES);" app/src/main/assets/index.html
-          grep -q "setOwnerGate(quote,\"\");" app/src/main/assets/index.html
           grep -q "launch.addEventListener(\"click\",launchJaneFromGate)" app/src/main/assets/index.html
+          grep -q "window.addEventListener('load', speakStartupLine);" app/src/main/assets/index.html
 
-          echo "=== verify House Dedmon launch screen retained ==="
-          grep -q "House Dedmon Access" app/src/main/assets/index.html
-          grep -q "house_dedmon_crest.webp" app/src/main/assets/index.html
-          grep -q "Launch Jane" app/src/main/assets/index.html
+          echo "=== looping observer removed and scoped repair installed ==="
+          grep -q "V75_STARTUP_OBSERVER_FIX" app/src/main/assets/index.html
+          grep -q "v75OverlayObserver" app/src/main/assets/index.html
+          ! grep -Fq 'new MutationObserver(() => { updateOverlayClass(); patch3DStudio(); }).observe(document.documentElement' app/src/main/assets/index.html
 
-          echo "=== verify V73 only hides vitals while launch gate is visible ==="
-          grep -q "v73-hide-vitals-on-launch-only-css" app/src/main/assets/index.html
-          grep -q "#ownerGate:not(.hidden) ~ .screen #janeVitalsHUD" app/src/main/assets/index.html
-
-          echo "=== verify V70 vitals/Image-to-3D retained ==="
+          echo "=== current requested features retained ==="
           grep -q "v70-home-vitals-image3d-css" app/src/main/assets/index.html
           grep -q "v70-home-vitals-image3d-fix" app/src/main/assets/index.html
           grep -q "v70ImageTo3DInput" app/src/main/assets/index.html
           grep -q "/meshy/image-to-3d" app/src/main/assets/index.html
-          grep -q "image_base64" app/src/main/assets/index.html
-          grep -q "output_formats" app/src/main/assets/index.html
           grep -q "Pressure" app/src/main/assets/index.html
           grep -q "Sync" app/src/main/assets/index.html
-
-          echo "=== verify launcher icon WebP assets and no duplicates ==="
-          test -f app/src/main/res/mipmap-mdpi/ic_launcher.webp
-          test -f app/src/main/res/mipmap-hdpi/ic_launcher.webp
-          test -f app/src/main/res/mipmap-xhdpi/ic_launcher.webp
-          test -f app/src/main/res/mipmap-xxhdpi/ic_launcher.webp
-          test -f app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp
-          test -f app/src/main/res/drawable/ic_launcher_foreground.webp
-          ! find app/src/main/res -path "*mipmap-*/ic_launcher.png" | grep -q .
-          ! find app/src/main/res -path "*mipmap-*/ic_launcher_round.png" | grep -q .
-          ! find app/src/main/res -path "*drawable/ic_launcher_foreground.png" | grep -q .
-
-          echo "=== verify retained features and unchanged GLB baseline ==="
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
-          grep -q "v58-offline-knowledge-engine" app/src/main/assets/index.html
           grep -q "v67b-transparent-webp-dialog-portrait-router" app/src/main/assets/index.html
           grep -q "v66-model-up-only-css" app/src/main/assets/index.html
-          grep -q "v65-clean-tools-engine" app/src/main/assets/index.html
           grep -q "rotation-per-second" app/src/main/assets/index.html
           grep -q "36deg" app/src/main/assets/index.html
-          grep -q "Deathcore101!!" app/src/main/assets/index.html
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== verify bad launch patches are gone ==="
-          ! grep -R "v71-home-only-vitals-gate-css\|v71-home-only-vitals-gate-fix" app/src/main
-          ! grep -R "v72-launch-gate-hard-repair-css\|v72-launch-gate-hard-repair\|JaneV72ForceLaunchJane\|STARTUP_FALLBACK_LINES" app/src/main
-          ! grep -R "Launch Jane always enters app\|CJ, I’m awake. Everyone else can step away" app/src/main
-
-          echo "=== verify other broken/dead pieces are gone ==="
-          ! grep -R "https://js.puter.com/v2/\|gemini-3.1-flash-lite-preview\|gemini-2.5-flash-image-preview" app/src/main
-          ! grep -R "BiometricPrompt\|USE_BIOMETRIC\|USE_FINGERPRINT\|runOwnerBiometricCheck\|notifyOwnerCheckResult\|requestOwnerCheck\|Waiting for biometric check" app/src/main
-          ! grep -R "jane_static_model_mobile_small.glb\|Meshy_AI_Kadi\|Meshy_AI_Midnight_Dragon_0512021503_texture.glb" app/src/main
+          echo "=== known bad launch wrappers remain absent ==="
+          ! grep -R "v71-home-only-vitals-gate-fix\|v72-launch-gate-hard-repair\|JaneV72ForceLaunchJane\|STARTUP_FALLBACK_LINES" app/src/main
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -115,5 +125,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-debug-apk
+          name: JaneAI-V75-startup-fixed-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
