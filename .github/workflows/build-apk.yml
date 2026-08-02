@@ -35,16 +35,26 @@ jobs:
           cd source
           patch -p2 < /tmp/v76.patch
 
-      - name: Configure stable update identity and signing
+      - name: Configure private stable update signing
         env:
           JANE_VERSION_CODE: ${{ github.run_number }}
+          JANE_KEYSTORE_BASE64: ${{ secrets.JANE_KEYSTORE_BASE64 }}
+          JANE_KEYSTORE_PASSWORD: JaneUpdatePrivate2026!
+          JANE_KEY_ALIAS: janeupdate
         run: |
-          base64 -d signing/jane-update-key.b64 > source/app/jane-update-key.jks
+          if [ -z "$JANE_KEYSTORE_BASE64" ]; then
+            echo "Missing GitHub Actions secret: JANE_KEYSTORE_BASE64"
+            exit 1
+          fi
+
+          printf '%s' "$JANE_KEYSTORE_BASE64" | base64 -d > source/app/jane-update-key.jks
           cd source
           python3 ../scripts/configure_stable_signing.py
 
       - name: Verify V76 features and stable update identity
         working-directory: source
+        env:
+          JANE_KEYSTORE_PASSWORD: JaneUpdatePrivate2026!
         run: |
           echo "=== direct reply inside Jane response screen ==="
           grep -q "v76-dialog-reply-knowledge-css" app/src/main/assets/index.html
@@ -71,7 +81,7 @@ jobs:
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
-          keytool -list -keystore app/jane-update-key.jks -storepass JaneUpdate2026 -alias janeupdate >/dev/null
+          keytool -list -keystore app/jane-update-key.jks -storepass "$JANE_KEYSTORE_PASSWORD" -alias janeupdate >/dev/null
 
           echo "=== retained untouched app systems ==="
           grep -q "V75_STARTUP_OBSERVER_FIX" app/src/main/assets/index.html
