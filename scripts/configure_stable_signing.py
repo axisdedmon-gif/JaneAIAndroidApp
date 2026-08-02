@@ -8,6 +8,11 @@ text = gradle.read_text(encoding="utf-8", errors="ignore")
 
 run_number = int(os.environ.get("JANE_VERSION_CODE", "1"))
 version_code = 100000 + run_number
+keystore_password = os.environ.get("JANE_KEYSTORE_PASSWORD", "")
+key_alias = os.environ.get("JANE_KEY_ALIAS", "janeupdate")
+
+if not keystore_password:
+    raise SystemExit("JANE_KEYSTORE_PASSWORD is missing.")
 
 text = re.sub(
     r'applicationId\s*=\s*"[^"]+"',
@@ -29,15 +34,15 @@ text = re.sub(
 )
 
 if "janeStable" not in text:
-    signing = '''android {
-    signingConfigs {
-        janeStable {
+    signing = f'''android {{
+    signingConfigs {{
+        janeStable {{
             storeFile file("jane-update-key.jks")
-            storePassword "JaneUpdate2026"
-            keyAlias "janeupdate"
-            keyPassword "JaneUpdate2026"
-        }
-    }
+            storePassword "{keystore_password}"
+            keyAlias "{key_alias}"
+            keyPassword "{keystore_password}"
+        }}
+    }}
 '''
     text = text.replace("android {\n", signing, 1)
 
