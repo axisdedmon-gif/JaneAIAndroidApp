@@ -14,10 +14,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repo with history
+      - name: Check out repo
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Unpack Jane base package
         run: |
@@ -56,7 +54,8 @@ jobs:
           JANE_KEYSTORE_PASSWORD: JaneUpdate2026
           JANE_KEY_ALIAS: janeupdate
         run: |
-          git show fbad016ea0d1ceaee341d39d6969484568f8e1dd:signing/jane-update-key.b64 \
+          curl -fsSL \
+            https://raw.githubusercontent.com/axisdedmon-gif/JaneAIAndroidApp/fbad016ea0d1ceaee341d39d6969484568f8e1dd/signing/jane-update-key.b64 \
             | tr -d '\r\n' \
             | base64 -d > source/app/jane-update-key.jks
 
