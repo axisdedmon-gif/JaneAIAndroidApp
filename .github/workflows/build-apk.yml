@@ -14,27 +14,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repo
+      - name: Check out repo with history
         uses: actions/checkout@v4
-
-      - name: Check stable signing setup
-        id: signing
-        env:
-          JANE_KEYSTORE_BASE64: ${{ secrets.JANE_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$JANE_KEYSTORE_BASE64" ]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "## Jane APK build paused" >> "$GITHUB_STEP_SUMMARY"
-            echo "The repository secret JANE_KEYSTORE_BASE64 has not been added yet." >> "$GITHUB_STEP_SUMMARY"
-            echo "No build was attempted, so this workflow will finish without a red failure." >> "$GITHUB_STEP_SUMMARY"
-            echo "Add the secret under Settings > Secrets and variables > Actions, then run this workflow again." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "Stable signing secret found. Continuing build."
-          fi
+        with:
+          fetch-depth: 0
 
       - name: Unpack Jane base package
-        if: steps.signing.outputs.ready == 'true'
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
@@ -51,29 +36,42 @@ jobs:
           fi
 
       - name: Apply V76 reply and offline knowledge patch
-        if: steps.signing.outputs.ready == 'true'
         run: |
           base64 -d patches/v76.patch.gz.b64 | gzip -d > /tmp/v76.patch
           cd source
           patch -p2 < /tmp/v76.patch
 
-      - name: Configure private stable update signing
-        if: steps.signing.outputs.ready == 'true'
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore stable signing key and configure updates
         env:
           JANE_VERSION_CODE: ${{ github.run_number }}
-          JANE_KEYSTORE_BASE64: ${{ secrets.JANE_KEYSTORE_BASE64 }}
-          JANE_KEYSTORE_PASSWORD: JaneUpdatePrivate2026!
+          JANE_KEYSTORE_PASSWORD: JaneUpdate2026
           JANE_KEY_ALIAS: janeupdate
         run: |
-          printf '%s' "$JANE_KEYSTORE_BASE64" | base64 -d > source/app/jane-update-key.jks
+          git show fbad016ea0d1ceaee341d39d6969484568f8e1dd:signing/jane-update-key.b64 \
+            | tr -d '\r\n' \
+            | base64 -d > source/app/jane-update-key.jks
+
+          keytool -list \
+            -keystore source/app/jane-update-key.jks \
+            -storepass "$JANE_KEYSTORE_PASSWORD" \
+            -alias "$JANE_KEY_ALIAS" >/dev/null
+
           cd source
           python3 ../scripts/configure_stable_signing.py
 
-      - name: Verify V76 features and stable update identity
-        if: steps.signing.outputs.ready == 'true'
+      - name: Verify V76 features and update identity
         working-directory: source
         env:
-          JANE_KEYSTORE_PASSWORD: JaneUpdatePrivate2026!
+          JANE_KEYSTORE_PASSWORD: JaneUpdate2026
         run: |
           echo "=== direct reply inside Jane response screen ==="
           grep -q "v76-dialog-reply-knowledge-css" app/src/main/assets/index.html
@@ -95,14 +93,17 @@ jobs:
           grep -q "Intent.EXTRA_ALLOW_MULTIPLE" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "handleKnowledgePickerResult" app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== stable update identity ==="
+          echo "=== stable in-place update identity ==="
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
-          keytool -list -keystore app/jane-update-key.jks -storepass "$JANE_KEYSTORE_PASSWORD" -alias janeupdate >/dev/null
+          keytool -list \
+            -keystore app/jane-update-key.jks \
+            -storepass "$JANE_KEYSTORE_PASSWORD" \
+            -alias janeupdate >/dev/null
 
-          echo "=== retained untouched app systems ==="
+          echo "=== retained app systems ==="
           grep -q "V75_STARTUP_OBSERVER_FIX" app/src/main/assets/index.html
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
           grep -q "v70-home-vitals-image3d-css" app/src/main/assets/index.html
@@ -111,31 +112,18 @@ jobs:
           grep -q "36deg" app/src/main/assets/index.html
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
-      - name: Set up Java
-        if: steps.signing.outputs.ready == 'true'
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Gradle
-        if: steps.signing.outputs.ready == 'true'
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Build stable-signed APK
-        if: steps.signing.outputs.ready == 'true'
+      - name: Build updateable APK
         working-directory: source
         run: gradle :app:assembleDebug
 
       - name: Verify APK certificate
-        if: steps.signing.outputs.ready == 'true'
         working-directory: source
         run: |
-          keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk | grep -q "Owner: CN=Jane AI Assistant"
+          keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk \
+            | grep -q "Owner: CN=Jane AI Assistant"
 
       - name: Upload APK
-        if: steps.signing.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V76-stable-update-apk
+          name: JaneAI-V76-update-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
