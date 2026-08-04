@@ -39,6 +39,14 @@ jobs:
           cd source
           patch -p2 < /tmp/v76.patch
 
+      - name: Enable AndroidX for bundled OCR
+        run: |
+          touch source/gradle.properties
+          grep -q '^android.useAndroidX=' source/gradle.properties \
+            || echo 'android.useAndroidX=true' >> source/gradle.properties
+          grep -q '^android.enableJetifier=' source/gradle.properties \
+            || echo 'android.enableJetifier=true' >> source/gradle.properties
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -91,6 +99,7 @@ jobs:
           grep -q "TextRecognition.getClient" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "Intent.EXTRA_ALLOW_MULTIPLE" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "handleKnowledgePickerResult" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q '^android.useAndroidX=true' gradle.properties
 
           echo "=== stable in-place update identity ==="
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
