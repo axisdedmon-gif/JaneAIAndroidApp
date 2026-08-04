@@ -28,7 +28,7 @@ text = re.sub(
 )
 text = re.sub(
     r'versionName\s*=\s*"[^"]+"',
-    f'versionName = "v76.{run_number}-stable-update"',
+    f'versionName = "v77.{run_number}-stable-update"',
     text,
     count=1,
 )
