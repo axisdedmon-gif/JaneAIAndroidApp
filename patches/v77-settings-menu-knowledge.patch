@@ -1,0 +1,151 @@
+--- a/app/src/main/assets/index.html
++++ b/app/src/main/assets/index.html
+@@ -3087,5 +3087,148 @@
+ 
+ 
+ <!-- V76: direct dialog replies and primary offline knowledge with native OCR for PDFs/photos/files. -->
++
++<style id="v77-settings-menu-knowledge-fix-css">
++/* V77: only settings accessibility, tool-menu isolation, and a visible offline-knowledge importer. */
++#janeToolsMenu.v77-force-closed{display:none!important;visibility:hidden!important;pointer-events:none!important}
++#ownerModal.active #ownerSetup{display:none!important}
++#ownerModal.active #ownerUnlock{display:block!important}
++#ownerModal.active #ownerUnlock.v56-hidden-owner-confirm{display:block!important}
++#ownerModal .v77-offline-knowledge-panel{display:block!important;margin-top:12px;border:1px solid rgba(85,220,255,.22);border-radius:18px;background:rgba(85,220,255,.055);padding:14px}
++#ownerModal .v77-offline-knowledge-panel h3{margin:0 0 6px;color:#dff8ff}
++#ownerModal .v77-offline-knowledge-panel p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.45}
++#ownerModal .v77-offline-knowledge-panel button{min-height:46px;padding:11px 14px}
++#v77KnowledgeQuickStatus{margin-top:10px;padding:10px 12px;border:1px solid rgba(85,220,255,.16);border-radius:14px;background:rgba(0,0,0,.22);color:var(--muted);font-size:12px;line-height:1.4;white-space:pre-wrap}
++</style>
++
++<script id="v77-settings-menu-knowledge-fix">
++(function(){
++  const OWNER_PHRASE="Deathcore101!!";
++  const OWNER_HASH="4e713000a9a39324ed328db3dfdec5744bbe3874174942298892ed712f20cf1c";
++  const OWNER_HASH_KEY="jane.ownerPhraseHash.v1";
++  const byId=id=>document.getElementById(id);
++
++  function closeToolsMenu(){
++    const menu=byId("janeToolsMenu");
++    if(!menu)return;
++    menu.classList.remove("open");
++    menu.classList.add("v77-force-closed");
++    menu.setAttribute("aria-hidden","true");
++    setTimeout(()=>menu.classList.remove("v77-force-closed"),80);
++  }
++
++  function overlayIsOpen(){
++    const ids=["ownerModal","travelModal","janeMeshyStudio","janeMusicStudio"];
++    if(ids.some(id=>{const el=byId(id);return !!el&&(el.classList.contains("active")||el.classList.contains("open"));}))return true;
++    const vn=byId("vn");
++    if(vn&&!vn.classList.contains("hidden")){
++      const cs=getComputedStyle(vn);
++      if(cs.display!=="none"&&cs.visibility!=="hidden")return true;
++    }
++    return false;
++  }
++
++  function syncKnowledgeStatus(){
++    const quick=byId("v77KnowledgeQuickStatus");
++    const original=byId("knowledgeStatus");
++    if(!quick)return;
++    if(original&&original.textContent.trim())quick.textContent=original.textContent.trim();
++    if(window.JaneOfflineKnowledge&&typeof window.JaneOfflineKnowledge.stats==="function"){
++      window.JaneOfflineKnowledge.stats().then(s=>{
++        if(!original||/No offline knowledge files imported yet/i.test(original.textContent||"")){
++          quick.textContent=s.docs?`${s.docs} offline knowledge file(s), ${s.chunks} searchable sections stored on this phone.`:"No offline knowledge files imported yet.";
++        }
++      }).catch(()=>{});
++    }
++  }
++
++  function ensureKnowledgePanel(){
++    const modal=byId("ownerModal");
++    const unlock=byId("ownerUnlock");
++    if(!modal||!unlock)return;
++    let panel=byId("v77OfflineKnowledgePanel");
++    if(!panel){
++      panel=document.createElement("section");
++      panel.id="v77OfflineKnowledgePanel";
++      panel.className="settings-section v77-offline-knowledge-panel";
++      panel.innerHTML=`<h3>Offline Knowledge Library</h3>
++        <p>Import PDFs, documents, text files, and photos. Jane extracts readable information, stores it on this phone, and checks it before general model knowledge.</p>
++        <div class="settings-actions"><button id="v77ImportKnowledgeBtn" class="primary" type="button">Import PDFs / Files / Photos</button></div>
++        <div id="v77KnowledgeQuickStatus">Checking offline knowledge library…</div>`;
++      unlock.insertAdjacentElement("afterend",panel);
++      byId("v77ImportKnowledgeBtn")?.addEventListener("click",function(ev){
++        ev.preventDefault();ev.stopPropagation();closeToolsMenu();
++        const existing=byId("importKnowledgeBtn");
++        if(existing){existing.click();return;}
++        if(window.AndroidJane&&typeof window.AndroidJane.pickKnowledgeFile==="function")window.AndroidJane.pickKnowledgeFile();
++        else alert("The Android knowledge-file picker is unavailable in this build.");
++      });
++      const original=byId("knowledgeStatus");
++      if(original)new MutationObserver(syncKnowledgeStatus).observe(original,{childList:true,subtree:true,characterData:true});
++    }
++    syncKnowledgeStatus();
++  }
++
++  function enforceSettingsAccess(){
++    try{localStorage.setItem(OWNER_HASH_KEY,OWNER_HASH);}catch(e){}
++    const setup=byId("ownerSetup");
++    const unlock=byId("ownerUnlock");
++    const input=byId("ownerPhraseInput");
++    if(setup){setup.classList.add("hidden");setup.style.display="none";}
++    if(unlock){unlock.classList.remove("hidden","v56-hidden-owner-confirm");unlock.style.display="";}
++    if(input){input.style.display="";input.disabled=false;input.type="password";input.placeholder="Owner phrase";}
++    ensureKnowledgePanel();
++  }
++
++  function wireUnlock(){
++    const button=byId("unlockSettingsBtn");
++    if(!button||button.dataset.v77Wired)return;
++    button.dataset.v77Wired="1";
++    button.addEventListener("click",function(ev){
++      ev.preventDefault();ev.stopImmediatePropagation();
++      const input=byId("ownerPhraseInput");
++      const phrase=String(input?.value||"").trim();
++      if(input)input.value="";
++      if(phrase!==OWNER_PHRASE){alert("Access denied.");return;}
++      try{localStorage.setItem(OWNER_HASH_KEY,OWNER_HASH);}catch(e){}
++      if(typeof window.refreshSettingsVisibility==="function")window.refreshSettingsVisibility(true);
++      else{
++        byId("sensitiveEditor")?.classList.remove("hidden");
++        byId("sensitiveHidden")?.classList.add("hidden");
++        if(typeof window.fillMemoryFields==="function")window.fillMemoryFields();
++      }
++      enforceSettingsAccess();
++      syncKnowledgeStatus();
++    },true);
++  }
++
++  function refresh(){
++    enforceSettingsAccess();
++    wireUnlock();
++    if(overlayIsOpen())closeToolsMenu();
++  }
++
++  document.addEventListener("click",function(ev){
++    const launcher=byId("janeToolsLauncher"), menu=byId("janeToolsMenu");
++    if(launcher?.contains(ev.target)||menu?.contains(ev.target))return;
++    closeToolsMenu();
++  },false);
++
++  ["privateBtn","travelBtn","backBtn","dialogReplyBtn","dialogCloseBtn"].forEach(id=>{
++    byId(id)?.addEventListener("click",()=>setTimeout(refresh,0),true);
++  });
++
++  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",refresh);
++  else refresh();
++  window.addEventListener("load",refresh);
++  setTimeout(refresh,250);setTimeout(refresh,900);setTimeout(refresh,1800);
++
++  ["ownerModal","travelModal","janeMeshyStudio","janeMusicStudio","vn"].forEach(id=>{
++    const el=byId(id);if(el)new MutationObserver(refresh).observe(el,{attributes:true,attributeFilter:["class","style","hidden","aria-hidden"]});
++  });
++})();
++</script>
++<!-- V77: tool menu cannot bleed across screens; owner phrase access restored; Offline Knowledge Library importer is visible in Private Settings. -->
++
+ </body>
+ </html>
