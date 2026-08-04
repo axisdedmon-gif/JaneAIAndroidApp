@@ -5,6 +5,10 @@ on:
   push:
     branches: [ main, master ]
 
+concurrency:
+  group: jane-android-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,7 +17,24 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v4
 
+      - name: Check stable signing setup
+        id: signing
+        env:
+          JANE_KEYSTORE_BASE64: ${{ secrets.JANE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$JANE_KEYSTORE_BASE64" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "## Jane APK build paused" >> "$GITHUB_STEP_SUMMARY"
+            echo "The repository secret JANE_KEYSTORE_BASE64 has not been added yet." >> "$GITHUB_STEP_SUMMARY"
+            echo "No build was attempted, so this workflow will finish without a red failure." >> "$GITHUB_STEP_SUMMARY"
+            echo "Add the secret under Settings > Secrets and variables > Actions, then run this workflow again." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "Stable signing secret found. Continuing build."
+          fi
+
       - name: Unpack Jane base package
+        if: steps.signing.outputs.ready == 'true'
         run: |
           rm -rf source unpacked
           mkdir -p unpacked
@@ -30,28 +51,26 @@ jobs:
           fi
 
       - name: Apply V76 reply and offline knowledge patch
+        if: steps.signing.outputs.ready == 'true'
         run: |
           base64 -d patches/v76.patch.gz.b64 | gzip -d > /tmp/v76.patch
           cd source
           patch -p2 < /tmp/v76.patch
 
       - name: Configure private stable update signing
+        if: steps.signing.outputs.ready == 'true'
         env:
           JANE_VERSION_CODE: ${{ github.run_number }}
           JANE_KEYSTORE_BASE64: ${{ secrets.JANE_KEYSTORE_BASE64 }}
           JANE_KEYSTORE_PASSWORD: JaneUpdatePrivate2026!
           JANE_KEY_ALIAS: janeupdate
         run: |
-          if [ -z "$JANE_KEYSTORE_BASE64" ]; then
-            echo "Missing GitHub Actions secret: JANE_KEYSTORE_BASE64"
-            exit 1
-          fi
-
           printf '%s' "$JANE_KEYSTORE_BASE64" | base64 -d > source/app/jane-update-key.jks
           cd source
           python3 ../scripts/configure_stable_signing.py
 
       - name: Verify V76 features and stable update identity
+        if: steps.signing.outputs.ready == 'true'
         working-directory: source
         env:
           JANE_KEYSTORE_PASSWORD: JaneUpdatePrivate2026!
@@ -93,24 +112,29 @@ jobs:
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
       - name: Set up Java
+        if: steps.signing.outputs.ready == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Gradle
+        if: steps.signing.outputs.ready == 'true'
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build stable-signed APK
+        if: steps.signing.outputs.ready == 'true'
         working-directory: source
         run: gradle :app:assembleDebug
 
       - name: Verify APK certificate
+        if: steps.signing.outputs.ready == 'true'
         working-directory: source
         run: |
           keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk | grep -q "Owner: CN=Jane AI Assistant"
 
       - name: Upload APK
+        if: steps.signing.outputs.ready == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: JaneAI-V76-stable-update-apk
