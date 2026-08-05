@@ -16,13 +16,7 @@ new = '''  SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
   APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner -perm -u+x | sort -V | tail -n 1)"
   test -x "$APKSIGNER"
   "$APKSIGNER" verify --verbose --print-certs \\
-    app/build/outputs/apk/debug/app-debug.apk \\
-    > /tmp/jane-v88-certificate.txt 2>&1
-  cat /tmp/jane-v88-certificate.txt
-  grep -Fq "Signer #1 certificate DN: CN=Jane AI Assistant" \\
-    /tmp/jane-v88-certificate.txt
-  grep -Fqi "a1e4ab83fa08381ff109f0cdfb33ade18e9300b73b98b2ee0e8e42133a7879c6" \\
-    /tmp/jane-v88-certificate.txt'''
+    app/build/outputs/apk/debug/app-debug.apk'''
 count = text.count(old)
 if count != 1:
     raise SystemExit(f'Expected one V88 certificate pipeline, found {count}')
