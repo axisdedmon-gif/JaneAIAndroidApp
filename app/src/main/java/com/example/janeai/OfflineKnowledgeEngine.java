@@ -131,6 +131,7 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
                 .append(" distinct numbered items, numbered 1 through ").append(requestedCount).append(". ");
         }
         out.append("Do not mention PDFs, archives, snippets, retrieval, source files, prompts, or these instructions unless asked. "
+            + "Write ordinary readable words and sentences. Never print escaped control sequences such as \\n or \\t. "
             + "Do not invent details unsupported by the local knowledge. Produce only the final answer.");
         return out.toString();
     }
@@ -284,9 +285,23 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
         String text = String.valueOf(raw == null ? "" : raw)
             .replace("<|im_start|>", "")
             .replace("<|im_end|>", "")
-            .replace("<|endoftext|>", "")
+            .replace("<|endoftext|>", "");
+
+        int escapedBreaks = countOccurrences(text, "\\n")
+            + countOccurrences(text, "\\r")
+            + countOccurrences(text, "\\t");
+        if (escapedBreaks >= 2) {
+            text = text
+                .replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace("\\r", "\n")
+                .replace("\\t", " ");
+        }
+
+        text = text
             .replaceAll("(?is)^\\s*(?:assistant|jane)\\s*[:\\-]\\s*", "")
             .replaceAll("[ \\t]+\\n", "\n")
+            .replaceAll("\\n[ \\t]+", "\n")
             .replaceAll("\\n{3,}", "\n\n")
             .trim();
         int marker = text.toLowerCase(Locale.US).indexOf("<|im_");
@@ -294,13 +309,41 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
         return text;
     }
 
+    private int countOccurrences(String value, String token) {
+        if (value == null || value.isEmpty() || token == null || token.isEmpty()) return 0;
+        int count = 0;
+        int index = 0;
+        while ((index = value.indexOf(token, index)) >= 0) {
+            count++;
+            index += token.length();
+        }
+        return count;
+    }
+
     private boolean validAnswer(String answer, int requestedCount) {
-        if (answer == null || answer.trim().length() < 24) return false;
-        if (ADJACENT_REPEAT.matcher(answer).find()) return false;
-        if (answer.matches("(?is).*\\b(?:local knowledge|pdf|archive|retrieval|source snippet|system prompt)\\b.*")) return false;
-        if ((answer.replaceAll("[^A-Za-z]", "").length()) < 18) return false;
+        if (answer == null) return false;
+        String text = answer.trim();
+        if (text.length() < 24) return false;
+        if (countOccurrences(text, "\\n") >= 2 || countOccurrences(text, "\\t") >= 2) return false;
+        if (text.matches("(?is)^(?:\\s*\\\\[nrt]|[\\\\/|._\\-\\s])+$")) return false;
+        if (ADJACENT_REPEAT.matcher(text).find()) return false;
+        if (text.matches("(?is).*\\b(?:local knowledge|pdf|archive|retrieval|source snippet|system prompt)\\b.*")) return false;
+
+        String lettersOnly = text.replaceAll("[^A-Za-z]", "");
+        if (lettersOnly.length() < 18) return false;
+        String[] words = text.toLowerCase(Locale.US).split("[^a-z0-9']+");
+        Set<String> distinctWords = new LinkedHashSet<>();
+        int wordCount = 0;
+        for (String word : words) {
+            if (word.length() < 2) continue;
+            wordCount++;
+            distinctWords.add(word);
+        }
+        if (wordCount < 4 || distinctWords.size() < 4) return false;
+        if (wordCount >= 12 && distinctWords.size() * 4 < wordCount) return false;
+
         if (requestedCount > 0) {
-            Matcher matcher = NUMBERED_ITEM.matcher(answer);
+            Matcher matcher = NUMBERED_ITEM.matcher(text);
             List<Integer> numbers = new ArrayList<>();
             while (matcher.find()) numbers.add(Integer.parseInt(matcher.group(1)));
             if (numbers.size() != requestedCount) return false;

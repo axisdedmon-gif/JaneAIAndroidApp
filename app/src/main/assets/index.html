@@ -4262,6 +4262,13 @@ ${context}`;
 
 <script id="v88-true-offline-knowledge-ai">
 (function(){
+  // V88 originally replaced every chat reply with the small on-device model.
+  // Keep that model as a genuine offline fallback, while normal online chat uses
+  // Jane's proven backend response path again.
+  const archiveAwareChat=window.chat;
+  const CHAT_URL=typeof CHAT_ENDPOINT==="string"
+    ? CHAT_ENDPOINT
+    : "https://jane-elevenlabs-backend.onrender.com/api/chat";
   const pending=new Map();
   let counter=0;
 
@@ -4272,31 +4279,114 @@ ${context}`;
     }catch(error){return "";}
   }
 
+  function normalizeReply(value){
+    let text=String(value==null?"":value).replace(/\u0000/g," ");
+    const escapedBreaks=(text.match(/\\(?:r\\n|n|r)/g)||[]).length;
+    if(escapedBreaks>=2){
+      text=text
+        .replace(/\\r\\n/g,"\n")
+        .replace(/\\n/g,"\n")
+        .replace(/\\r/g,"\n");
+    }
+    return text
+      .replace(/[ \t]+\n/g,"\n")
+      .replace(/\n[ \t]+/g,"\n")
+      .replace(/\n{3,}/g,"\n\n")
+      .trim();
+  }
+
+  function brokenReply(value){
+    const raw=String(value==null?"":value);
+    const literalBreaks=(raw.match(/\\(?:r\\n|n|r)/g)||[]).length;
+    if(literalBreaks>=4)return true;
+    const text=normalizeReply(raw);
+    const compact=text.replace(/\s+/g,"");
+    if(compact.length<2||!/[A-Za-z0-9]/.test(text))return true;
+    if(/^(?:\\[nrt]|[\\/|._\-\s])+$/i.test(raw))return true;
+    const alnum=(text.match(/[A-Za-z0-9]/g)||[]).length;
+    if(text.length>40&&alnum/text.length<0.25)return true;
+    const tokens=(text.toLowerCase().match(/[a-z0-9']+/g)||[]);
+    if(tokens.length>=12){
+      const distinct=new Set(tokens);
+      if(distinct.size/Math.max(tokens.length,1)<0.22)return true;
+    }
+    return false;
+  }
+
+  function archiveFailure(value){
+    return /don[’']t have enough relevant knowledge|add material that covers it|AI reasoning service did not complete|scrambled PDF fragments|matching Archive material|on-device AI could not complete/i.test(String(value||""));
+  }
+
+  function asksForStoredKnowledge(question){
+    return /\b(?:archive|archives|knowledge base|stored knowledge|uploaded|upload|document|documents|pdf|file|files|according to|from my notes|from the notes|from the book|from the manual)\b/i.test(String(question||""));
+  }
+
+  async function postJson(url,body,timeoutMs){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),timeoutMs||70000);
+    try{
+      const response=await fetch(url,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(body),
+        signal:controller.signal
+      });
+      const raw=await response.text();
+      let data;
+      try{data=JSON.parse(raw);}catch{data={error:raw};}
+      if(!response.ok)throw new Error(data.error||("HTTP "+response.status));
+      return data;
+    }finally{clearTimeout(timer);}
+  }
+
+  async function normalOnlineChat(question){
+    const ownerVerified=Boolean(typeof state!=="undefined"&&state.ownerVerified);
+    const identityTone=ownerVerified
+      ? "C.J. is verified. Reply as Jane: natural, familiar, affectionate, direct, and genuinely helpful. Do not force flirtation into factual answers."
+      : "The user is not verified as C.J. Reply as Jane: helpful, direct, guarded, and naturally sarcastic without obstructing the answer.";
+    let privateContext="";
+    try{
+      if(typeof privateContextText==="function")privateContext=String(privateContextText()||"");
+    }catch(error){privateContext="";}
+    const body={
+      message:[privateContext,identityTone,"User request:\n"+question].filter(Boolean).join("\n\n"),
+      history:typeof state!=="undefined"&&Array.isArray(state.history)?state.history.slice(-8):[]
+    };
+    if(typeof state!=="undefined"&&state.attachedFile){
+      body.fileName=state.attachedFile.name;
+      body.fileMimeType=state.attachedFile.mimeType;
+      body.fileBase64=state.attachedFile.base64;
+    }
+    const data=await postJson(CHAT_URL,body,70000);
+    const reply=normalizeReply(data.reply||"");
+    if(brokenReply(data.reply)||!reply)throw new Error("The online response was malformed.");
+    return reply;
+  }
+
   window.JaneNativeOfflineKnowledgeAnswerResult=function(requestId,base64){
-    const request=pending.get(String(requestId||""));
+    const key=String(requestId||"");
+    const request=pending.get(key);
     if(!request)return;
     clearTimeout(request.timer);
-    pending.delete(String(requestId||""));
+    pending.delete(key);
     try{
       const payload=JSON.parse(decodeUtf8B64(base64)||"{}");
-      if(payload.reply&&String(payload.reply).trim()){
-        request.resolve(String(payload.reply).trim());
+      const reply=normalizeReply(payload.reply||"");
+      if(reply&&!brokenReply(payload.reply)){
+        request.resolve(reply);
         return;
       }
-      request.reject(new Error(payload.error||"The on-device AI returned no answer."));
+      request.reject(new Error(payload.error||"The on-device AI returned malformed text."));
     }catch(error){request.reject(error);}
   };
 
-  async function v88OfflineChat(message){
-    const question=String(message||"").trim();
-    if(!question)return "";
+  function offlineChat(question){
     if(!window.AndroidJane||typeof window.AndroidJane.answerKnowledgeOffline!=="function"){
-      throw new Error("Jane's on-device AI bridge is unavailable in this installation.");
+      return Promise.reject(new Error("Jane's on-device AI bridge is unavailable in this installation."));
     }
     const requestId="v88_"+Date.now()+"_"+(++counter);
     const ownerVerified=Boolean(typeof state!=="undefined"&&state.ownerVerified);
     return new Promise((resolve,reject)=>{
-      // First use copies and initializes the bundled model. Later answers reuse it.
       const timer=setTimeout(()=>{
         pending.delete(requestId);
         reject(new Error("Jane's on-device AI took too long to initialize or answer."));
@@ -4309,29 +4399,54 @@ ${context}`;
         pending.delete(requestId);
         reject(error);
       }
-    }).catch(error=>{
-      console.error("[Jane V88 offline AI]",error);
-      const detail=String(error&&error.message||error||"").trim();
-      return detail
-        ? "My on-device AI could not complete that answer: "+detail
-        : "My on-device AI could not complete that answer.";
     });
   }
 
-  window.chat=v88OfflineChat;
-  try{chat=v88OfflineChat;}catch(error){}
+  async function v88Chat(message){
+    const question=String(message||"").trim();
+    if(!question)return "";
+
+    // Explicit document/archive questions retain the archive-aware reasoning path.
+    if(asksForStoredKnowledge(question)&&typeof archiveAwareChat==="function"){
+      try{
+        const archiveReply=normalizeReply(await archiveAwareChat(question));
+        if(archiveReply&&!archiveFailure(archiveReply)&&!brokenReply(archiveReply))return archiveReply;
+      }catch(error){console.warn("[Jane archive response]",error);}
+    }
+
+    // Ordinary questions use the normal backend again, restoring the response
+    // quality Jane had before the on-device model replaced all chat traffic.
+    try{return await normalOnlineChat(question);}
+    catch(error){console.warn("[Jane online response]",error);}
+
+    // Real offline inference remains available when the backend cannot be reached.
+    try{
+      const reply=normalizeReply(await offlineChat(question));
+      if(!reply||brokenReply(reply))throw new Error("The offline response was malformed.");
+      return reply;
+    }catch(error){
+      console.error("[Jane V88 offline AI]",error);
+      return "I couldn't complete that response cleanly. I stopped the broken output instead of showing you garbage. Check the connection and try once more.";
+    }
+  }
+
+  window.chat=v88Chat;
+  try{chat=v88Chat;}catch(error){}
   window.JANE_V88_TRUE_OFFLINE_AI={
+    normalOnlineResponsesRestored:true,
     actualOnDeviceLlm:true,
+    offlineFallbackOnly:true,
     networkRequired:false,
     semanticQueryExpansion:true,
     localArchiveGrounding:true,
     rawFragmentFallback:false,
-    exactCountValidation:true,
+    escapedNewlineSpamBlocked:true,
+    malformedResponseValidation:true,
     bundledModel:"Qwen2.5-0.5B-Instruct-q8"
   };
 })();
 </script>
-<!-- V88: Jane now reasons over stored knowledge with a bundled on-device LLM. -->
+<!-- V88 response repair: normal backend first, archive-aware route when requested, validated on-device fallback offline. -->
 
 </body>
 </html>
