@@ -1,22 +1,23 @@
-name: Build Jane Android APK
+name: Flatten Jane V88 Repository
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: jane-android-manual-build
+  group: jane-v88-flatten-once
   cancel-in-progress: false
 
 jobs:
-  build:
+  flatten:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
-      - name: Check out repository
+      - name: Check out patch-chain repository
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -25,32 +26,26 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Verify Java 21 toolchain
-        run: |
-          JAVA_SPEC="$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.specification.version = //p')"
-          test "$JAVA_SPEC" = "21"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and validate V88
+      - name: Build and validate completed V88
         run: bash scripts/build_v88_release.sh
 
-      - name: Upload signed V88 APK
-        if: always()
+      - name: Preserve validated V88 APK
         uses: actions/upload-artifact@v4
         with:
           name: JaneAI-V88-true-offline-ai-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
           compression-level: 0
-          retention-days: 1
+          retention-days: 14
 
-      - name: Upload reproducible V88 source
-        if: always()
+      - name: Replace repository with flattened V88 source
+        run: bash scripts/flatten_v88_repo.sh
+
+      - name: Preserve flattened V88 source
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAIAndroidSource-v88-true-offline-ai
-          path: JaneAIAndroidSource_v88_true_offline_ai.zip
-          if-no-files-found: error
-          retention-days: 1
+          name: JaneAIAndroidSource-v88-flattened
+          path: JaneAIAndroidSource_v88_flattened.zip
+          retention-days: 14
