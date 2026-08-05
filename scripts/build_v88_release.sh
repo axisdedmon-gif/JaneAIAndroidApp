@@ -11,10 +11,17 @@ path = Path('/tmp/build_v88_manual.sh')
 text = path.read_text(encoding='utf-8')
 old = '''  keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk \\
     | grep -q "Owner: CN=Jane AI Assistant"'''
-new = '''  keytool -printcert -jarfile app/build/outputs/apk/debug/app-debug.apk \\
+new = '''  SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+  test -n "$SDK_ROOT"
+  APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner -perm -u+x | sort -V | tail -n 1)"
+  test -x "$APKSIGNER"
+  "$APKSIGNER" verify --verbose --print-certs \\
+    app/build/outputs/apk/debug/app-debug.apk \\
     > /tmp/jane-v88-certificate.txt 2>&1
-  grep -Fq "Owner: CN=Jane AI Assistant" /tmp/jane-v88-certificate.txt
-  grep -Fq "SHA256: A1:E4:AB:83:FA:08:38:1F:F1:09:F0:CD:FB:33:AD:E1:8E:93:00:B7:3B:98:B2:EE:0E:8E:42:13:3A:78:79:C6" \\
+  cat /tmp/jane-v88-certificate.txt
+  grep -Fq "Signer #1 certificate DN: CN=Jane AI Assistant" \\
+    /tmp/jane-v88-certificate.txt
+  grep -Fqi "a1e4ab83fa08381ff109f0cdfb33ade18e9300b73b98b2ee0e8e42133a7879c6" \\
     /tmp/jane-v88-certificate.txt'''
 count = text.count(old)
 if count != 1:
