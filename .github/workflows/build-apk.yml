@@ -58,6 +58,12 @@ jobs:
           cd source
           patch -p1 < /tmp/v79.patch
 
+      - name: Apply V80 reliable knowledge import and indexing patch
+        run: |
+          base64 -d patches/v80.patch.gz.b64 | gzip -d > /tmp/v80.patch
+          cd source
+          patch -p1 < /tmp/v80.patch
+
       - name: Enable AndroidX for bundled OCR
         run: |
           touch source/gradle.properties
@@ -94,12 +100,26 @@ jobs:
           cd source
           python3 scripts/configure_stable_signing.py
 
-      - name: Verify V79 exact scope
+      - name: Verify V80 reliable import and exact scope
         working-directory: source
         env:
           JANE_KEYSTORE_PASSWORD: JaneUpdate2026
         run: |
-          echo "=== independent opaque Archives route and themed UI ==="
+          echo "=== V80 selected-file acceptance and visible indexing ==="
+          grep -q "v80-import-indexing-visibility-fix" app/src/main/assets/index.html
+          grep -q "v80ImportStatus" app/src/main/assets/index.html
+          grep -q "JaneNativeArchiveImportAccepted" app/src/main/assets/index.html
+          grep -q "JaneNativeArchiveIndexProgress" app/src/main/assets/index.html
+          grep -q "v79-retry-entry" app/src/main/assets/index.html
+          grep -q "retryKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "indexStatus" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "indexStoredKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "resumePendingKnowledgeImports" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "extractEmbeddedPdfText" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "recognizePdfFile" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "com.tom-roush:pdfbox-android:2.0.27.0" app/build.gradle
+
+          echo "=== independent opaque Archives route and themed UI retained ==="
           grep -q "v79-native-archives-route-ui-css" app/src/main/assets/index.html
           grep -q "v79-native-archives-route-engine" app/src/main/assets/index.html
           grep -q "Knowledge Base / Archives" app/src/main/assets/index.html
@@ -110,7 +130,7 @@ jobs:
           grep -q "#ownerModal #v77OfflineKnowledgePanel" app/src/main/assets/index.html
           grep -q "closeOwnerSettings" app/src/main/assets/index.html
 
-          echo "=== durable native originals and catalog ==="
+          echo "=== durable native originals and catalog retained ==="
           grep -q "knowledge_archive" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "catalog.json" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "copyKnowledgeOriginal" app/src/main/java/com/example/janeai/MainActivity.java
@@ -120,7 +140,7 @@ jobs:
           grep -q "archiveLegacyKnowledgeStart" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "native-private-archive" app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== internal archive reader ==="
+          echo "=== internal archive reader retained ==="
           grep -q "previewKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "JaneNativeArchivePreviewReady" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "PdfRenderer.Page" app/src/main/java/com/example/janeai/MainActivity.java
@@ -139,7 +159,7 @@ jobs:
           grep -q "TextRecognition.getClient" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q '^android.useAndroidX=true' gradle.properties
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
-          grep -q 'versionName = "v79.' app/build.gradle
+          grep -q 'versionName = "v80.' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
@@ -170,5 +190,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V79-native-archives-route-apk
+          name: JaneAI-V80-reliable-knowledge-import-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
