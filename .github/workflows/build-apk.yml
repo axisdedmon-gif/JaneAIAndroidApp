@@ -64,6 +64,12 @@ jobs:
           cd source
           patch -p1 < /tmp/v80.patch
 
+      - name: Apply V81 knowledge performance patch preserving imports
+        run: |
+          base64 -d patches/v81.patch.gz.b64 | gzip -d > /tmp/v81.patch
+          cd source
+          patch -p1 < /tmp/v81.patch
+
       - name: Enable AndroidX for bundled OCR
         run: |
           touch source/gradle.properties
@@ -100,69 +106,64 @@ jobs:
           cd source
           python3 scripts/configure_stable_signing.py
 
-      - name: Verify V80 reliable import and exact scope
+      - name: Verify V81 performance and import preservation
         working-directory: source
         env:
           JANE_KEYSTORE_PASSWORD: JaneUpdate2026
         run: |
-          echo "=== V80 selected-file acceptance and visible indexing ==="
+          echo "=== V81 knowledge performance without data deletion ==="
+          grep -q "v81-knowledge-performance-preserve-imports" app/src/main/assets/index.html
+          grep -q "DB_VERSION=2" app/src/main/assets/index.html
+          grep -q 'createIndex("terms","terms",{unique:false,multiEntry:true})' app/src/main/assets/index.html
+          grep -q "chunkCount" app/src/main/assets/index.html
+          grep -q "SEARCH_CACHE_LIMIT" app/src/main/assets/index.html
+          grep -q "restoreKnowledgeArchives" app/src/main/assets/index.html
+          grep -q "restoreKnowledgeArchives" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "full-library restoration is intentionally disabled" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "preservedNativeArchives:true" app/src/main/assets/index.html
+          grep -q 'versionName = "v81.' scripts/configure_stable_signing.py
+          ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v81.patch
+
+          echo "=== V80 selected-file acceptance and visible indexing retained ==="
           grep -q "v80-import-indexing-visibility-fix" app/src/main/assets/index.html
           grep -q "v80ImportStatus" app/src/main/assets/index.html
           grep -q "JaneNativeArchiveImportAccepted" app/src/main/assets/index.html
           grep -q "JaneNativeArchiveIndexProgress" app/src/main/assets/index.html
-          grep -q "v79-retry-entry" app/src/main/assets/index.html
           grep -q "retryKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "indexStatus" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "indexStoredKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "resumePendingKnowledgeImports" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "extractEmbeddedPdfText" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "recognizePdfFile" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "com.tom-roush:pdfbox-android:2.0.27.0" app/build.gradle
 
-          echo "=== independent opaque Archives route and themed UI retained ==="
-          grep -q "v79-native-archives-route-ui-css" app/src/main/assets/index.html
-          grep -q "v79-native-archives-route-engine" app/src/main/assets/index.html
-          grep -q "Knowledge Base / Archives" app/src/main/assets/index.html
-          grep -q "openKnowledgeBaseMenuBtn" app/src/main/assets/index.html
-          grep -q "background:linear-gradient(180deg,#0b0710" app/src/main/assets/index.html
-          grep -q "v79-purple" app/src/main/assets/index.html
-          grep -q "v79-gold" app/src/main/assets/index.html
-          grep -q "#ownerModal #v77OfflineKnowledgePanel" app/src/main/assets/index.html
-          grep -q "closeOwnerSettings" app/src/main/assets/index.html
-
-          echo "=== durable native originals and catalog retained ==="
+          echo "=== durable native Archives retained ==="
           grep -q "knowledge_archive" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "catalog.json" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "copyKnowledgeOriginal" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "writeKnowledgeArchiveText" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "listKnowledgeArchives" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "restoreNativeKnowledgeIndex" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "archiveLegacyKnowledgeStart" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "native-private-archive" app/src/main/java/com/example/janeai/MainActivity.java
 
-          echo "=== internal archive reader retained ==="
-          grep -q "previewKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "JaneNativeArchivePreviewReady" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "PdfRenderer.Page" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "v79ReaderImage" app/src/main/assets/index.html
-          grep -q "v79PageNav" app/src/main/assets/index.html
-          grep -q "JaneNativeArchiveTextComplete" app/src/main/assets/index.html
-
-          echo "=== knowledge-only answer behavior retained ==="
+          echo "=== knowledge-only and reader behavior retained ==="
           grep -q "JANE KNOWLEDGE-BOUND MODE" app/src/main/assets/index.html
           grep -q "only factual knowledge you may use" app/src/main/assets/index.html
           grep -q "I don’t know that from the knowledge you’ve given me" app/src/main/assets/index.html
           grep -q "perform arithmetic or logical deductions" app/src/main/assets/index.html
+          grep -q "previewKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "JaneNativeArchivePreviewReady" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "v79ReaderImage" app/src/main/assets/index.html
 
           echo "=== OCR and update identity retained ==="
           grep -q "com.google.mlkit:text-recognition:16.0.1" app/build.gradle
           grep -q "TextRecognition.getClient" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q '^android.useAndroidX=true' gradle.properties
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
-          grep -q 'versionName = "v80.' app/build.gradle
+          grep -q 'versionName = "v81.' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
+
           keytool -list \
             -keystore app/jane-update-key.jks \
             -storepass "$JANE_KEYSTORE_PASSWORD" \
@@ -190,5 +191,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V80-reliable-knowledge-import-apk
+          name: JaneAI-V81-fast-knowledge-preserve-imports-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
