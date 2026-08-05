@@ -1,0 +1,46 @@
+name: Build Jane Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jane-android-manual-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and validate V86
+        run: bash scripts/build_v86_manual.sh
+
+      - name: Upload signed V86 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: JaneAI-V86-reliable-list-answer-scroll-apk
+          path: source/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      - name: Upload exact V86 source
+        uses: actions/upload-artifact@v4
+        with:
+          name: JaneAIAndroidSource-v86-reliable-list-answer-scroll
+          path: JaneAIAndroidSource_v86_reliable_list_answer_scroll.zip
+          retention-days: 14
