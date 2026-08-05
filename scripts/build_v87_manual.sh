@@ -30,8 +30,8 @@ python3 - <<'PY' ''',
 )
 
 replace_once(
-    "'v86.{run_number}-stable-update'",
-    "'v87.{run_number}-stable-update'",
+    '"v86.{run_number}-stable-update"',
+    '"v87.{run_number}-stable-update"',
     'V87 version assignment',
 )
 
