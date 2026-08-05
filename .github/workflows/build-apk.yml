@@ -52,6 +52,8 @@ jobs:
 
       - name: Apply V79 native Archives route and UI patch
         run: |
+          mkdir -p source/scripts
+          cp scripts/configure_stable_signing.py source/scripts/configure_stable_signing.py
           base64 -d patches/v79.patch.gz.b64 | gzip -d > /tmp/v79.patch
           cd source
           patch -p1 < /tmp/v79.patch
