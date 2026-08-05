@@ -88,6 +88,12 @@ jobs:
           cd source
           patch -p1 < /tmp/v84.patch
 
+      - name: Apply V85 personality-first replies and final response scrolling patch
+        run: |
+          base64 -d patches/v85.patch.gz.b64 | gzip -d > /tmp/v85.patch
+          cd source
+          patch -p1 < /tmp/v85.patch
+
       - name: Bundle model viewer inside the APK
         run: |
           rm -rf /tmp/jane-model-viewer
@@ -135,24 +141,40 @@ jobs:
           cd source
           python3 scripts/configure_stable_signing.py
 
-      - name: Verify V84 natural answers offline import and preserved systems
+      - name: Verify V85 personality replies scrolling and preserved systems
         working-directory: source
         env:
           JANE_KEYSTORE_PASSWORD: JaneUpdate2026
         run: |
-          echo "=== V84 natural Jane-style knowledge answers ==="
+          echo "=== V85 personality-first knowledge answers and full dialog scrolling ==="
           grep -q "JANE_V84_OFFLINE_KNOWLEDGE" app/src/main/assets/index.html
           grep -q "naturalAnswerSynthesis:true" app/src/main/assets/index.html
           grep -q "sourcesOnlyOnRequest:true" app/src/main/assets/index.html
           grep -q "quotesOnlyOnRequest:true" app/src/main/assets/index.html
           grep -q "asksForSources" app/src/main/assets/index.html
           grep -q "asksForQuote" app/src/main/assets/index.html
-          grep -q "supplementalSentence" app/src/main/assets/index.html
-          grep -q "Write a fresh, natural answer in Jane's established personality" app/src/main/assets/index.html
           grep -q "Do not mention filenames, sources, citations, page numbers, or quotations unless" app/src/main/assets/index.html
+          grep -q "JANE_V85_FINAL_RESPONSE" app/src/main/assets/index.html
+          grep -q "personalityFirstKnowledgeAnswers:true" app/src/main/assets/index.html
+          grep -q "noBookReportVoice:true" app/src/main/assets/index.html
+          grep -q "fullScrollableDialog:true" app/src/main/assets/index.html
+          grep -q "v85-dialog-scroll-final-css" app/src/main/assets/index.html
+          grep -q "v85-personality-synthesis-and-dialog-scroll" app/src/main/assets/index.html
+          grep -q "janeKnowledgeLead" app/src/main/assets/index.html
+          grep -q "Speak as Jane directly to the user" app/src/main/assets/index.html
+          grep -q "Never sound like a textbook" app/src/main/assets/index.html
+          grep -q "#vn #dialogText" app/src/main/assets/index.html
+          grep -q 'overflowY="auto"' app/src/main/assets/index.html
+          grep -q "body.scrollTop=0" app/src/main/assets/index.html
+          ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v85.patch
+          ! grep -q '^[-+].*getKnowledgeArchiveDir' /tmp/v85.patch
+          ! grep -q '^[-+].*catalog.json' /tmp/v85.patch
+          ! grep -q '^[-+].*copyKnowledgeOriginal' /tmp/v85.patch
+          ! grep -q '^[-+].*homeJaneModel' /tmp/v85.patch
+          ! grep -q '^[-+].*ownerGate' /tmp/v85.patch
           grep -q "preferredPositions" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "this page intentionally left blank" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q 'versionName = "v84.' scripts/configure_stable_signing.py
+          grep -q 'versionName = "v85.' scripts/configure_stable_signing.py
 
           echo "=== V84 knowledge import is completely local ==="
           grep -q "networkIndependentImport:true" app/src/main/assets/index.html
@@ -206,7 +228,7 @@ jobs:
 
           echo "=== stable update identity and untouched systems retained ==="
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
-          grep -q 'versionName = "v84.' app/build.gradle
+          grep -q 'versionName = "v85.' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
@@ -232,5 +254,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V84-natural-offline-knowledge-apk
+          name: JaneAI-V85-personality-scroll-final-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
