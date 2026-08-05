@@ -5,6 +5,7 @@ ROOT="$GITHUB_WORKSPACE"
 SOURCE="$ROOT/source"
 FLAT="/tmp/jane-v88-flat"
 SOURCE_ARCHIVE="/tmp/JaneAIAndroidSource_v88_flattened.zip"
+TRANSITION_WORKFLOW="/tmp/jane-v88-transition-workflow.yml"
 
 if [[ ! -s "$SOURCE/app/src/main/assets/index.html" ]]; then
   echo "The completed V88 source tree is missing." >&2
@@ -14,6 +15,12 @@ if [[ ! -s "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.
   echo "The V88 offline AI engine is missing." >&2
   exit 1
 fi
+if [[ ! -s "$ROOT/.github/workflows/build-apk.yml" ]]; then
+  echo "The transition workflow is missing." >&2
+  exit 1
+fi
+
+cp "$ROOT/.github/workflows/build-apk.yml" "$TRANSITION_WORKFLOW"
 
 grep -q 'versionName = "v88.' "$SOURCE/app/build.gradle"
 grep -q 'com.google.mediapipe:tasks-genai:0.10.27' "$SOURCE/app/build.gradle"
@@ -192,8 +199,8 @@ EOF
 cat > "$FLAT/README.md" <<'EOF'
 # Jane AI Android — V88 flattened source
 
-This branch is the complete V88 Android source tree. It no longer rebuilds V73
-or applies the V76–V88 patch chain. GitHub Actions builds this source directly.
+This repository is the complete V88 Android source tree. It no longer rebuilds
+V73 or applies the V76–V88 patch chain. GitHub Actions builds this source directly.
 
 The on-device Qwen2.5 0.5B task model is intentionally not stored in Git because
 it exceeds GitHub's per-file limit. `scripts/build_v88_direct.sh` downloads the
@@ -204,7 +211,7 @@ The historical patch chain remains available in Git history, but it is not used
 by the current source or workflow.
 EOF
 
-# Produce a clean source archive for this run without placing it in Git.
+# Produce a clean source archive containing the final direct-build workflow.
 rm -f "$SOURCE_ARCHIVE"
 (
   cd "$FLAT"
@@ -215,9 +222,13 @@ rm -f "$SOURCE_ARCHIVE"
 )
 test -s "$SOURCE_ARCHIVE"
 
-# Replace the patch-chain repository tree with the completed V88 source tree.
+# Replace the patch-chain tree with the completed V88 source, but preserve the
+# currently running transition workflow. GitHub Actions tokens without the
+# workflows permission may update source files but may not modify workflow files.
 find "$ROOT" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 cp -a "$FLAT/." "$ROOT/"
+mkdir -p "$ROOT/.github/workflows"
+cp "$TRANSITION_WORKFLOW" "$ROOT/.github/workflows/build-apk.yml"
 
 cd "$ROOT"
 git config user.name "axisdedmon-gif"
