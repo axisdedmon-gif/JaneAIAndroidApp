@@ -1,0 +1,36 @@
+name: Flatten V88 From Validated Source
+
+on:
+  push:
+    branches: [flatten-v88-once]
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: jane-v88-artifact-flatten-once
+  cancel-in-progress: false
+
+jobs:
+  flatten:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out flattening branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace main with validated flattened V88 source
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/flatten_v88_from_artifact.sh
+
+      - name: Preserve flattened source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: JaneAIAndroidSource-v88-flattened
+          path: JaneAIAndroidSource_v88_flattened.zip
+          retention-days: 14
