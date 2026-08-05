@@ -1,6 +1,6 @@
 --- a/app/src/main/assets/index.html
 +++ b/app/src/main/assets/index.html
-@@ -4081,5 +4081,177 @@
+@@ -4081,5 +4081,182 @@
  </script>
  <!-- V85: Jane-style knowledge synthesis and a fully scrollable response card. No Archive, startup, model, portrait, voice, tools, or import systems changed. -->
  
@@ -10,7 +10,6 @@
 +(function(){
 +  const priorChat=window.chat;
 +  const CHAT_URL=typeof CHAT_ENDPOINT==="string"?CHAT_ENDPOINT:"https://jane-elevenlabs-backend.onrender.com/api/chat";
-+  const KNOWLEDGE_URL=CHAT_URL.replace(/\/api\/chat(?:\?.*)?$/,"/api/knowledge-chat");
 +  const pending=new Map();
 +  let requestCounter=0;
 +
@@ -140,19 +139,25 @@
 +  }
 +  async function askReasoningService(question,excerpts){
 +    const count=requestedCount(question);
-+    const history=(typeof state!=="undefined"&&Array.isArray(state.history)?state.history:[]).slice(-4);
 +    const ownerVerified=Boolean(typeof state!=="undefined"&&state.ownerVerified);
-+    try{
-+      const data=await postJson(KNOWLEDGE_URL,{question,excerpts,history,ownerVerified,requestedCount:count},50000);
-+      if(validAiReply(data.reply,count))return data.reply.trim();
-+      throw new Error("Reasoning service returned malformed text.");
-+    }catch(primaryError){
-+      const context=excerpts.map((item,index)=>`SOURCE ${index+1}: ${item.source}\n${item.text}`).join("\n\n---\n\n");
-+      const prompt=`You are Jane, an actual reasoning assistant. Answer the user's question by understanding and synthesizing the supplied knowledge. Do not copy, splice, or concatenate raw PDF sentences. Correct obvious OCR damage silently. Use natural language. If the user requests a number of facts or reasons, provide exactly that many distinct numbered items. Do not mention archives, excerpts, files, or sources unless asked.\n\nUSER QUESTION:\n${question}\n\nKNOWLEDGE:\n${context}`;
-+      const data=await postJson(CHAT_URL,{message:prompt,history:[]},50000);
-+      if(validAiReply(data.reply,count))return data.reply.trim();
-+      throw primaryError;
-+    }
++    const context=excerpts.map((item,index)=>`SOURCE ${index+1}: ${item.source}
++${item.text}`).join("\n\n---\n\n");
++    const relationship=ownerVerified
++      ? "The user is C.J. Keep Jane's familiar personality, but keep factual answers clear and focused."
++      : "The user is not verified as C.J. Keep Jane's personality without obstructing the answer.";
++    const countRule=count?`The user requested exactly ${count} items. Return exactly ${count} distinct numbered items.`:"Answer in the format that best fits the question.";
++    const prompt=`You are Jane, a real AI reasoning assistant. ${relationship}
++
++Use the supplied knowledge as factual grounding, but understand meaning and paraphrases rather than searching for exact wording. Think across the excerpts, combine related facts, and write a fresh answer. Never copy, splice, or concatenate raw PDF sentences. Correct obvious OCR damage silently. ${countRule} Do not mention archives, excerpts, filenames, or sources unless the user asks. If the supplied knowledge truly cannot support the answer, state the specific missing information instead of inventing it.
++
++USER QUESTION:
++${question}
++
++SUPPLIED KNOWLEDGE:
++${context}`;
++    const data=await postJson(CHAT_URL,{message:prompt,history:[]},70000);
++    if(validAiReply(data.reply,count))return data.reply.trim();
++    throw new Error("Reasoning service returned malformed text.");
 +  }
 +  async function v87Chat(message){
 +    const question=String(message||"").trim();
