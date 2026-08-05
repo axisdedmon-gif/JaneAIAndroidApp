@@ -34,7 +34,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build and validate V88
-        run: bash scripts/build_v88_manual.sh
+        run: bash scripts/build_v88_release.sh
 
       - name: Upload signed V88 APK
         uses: actions/upload-artifact@v4
