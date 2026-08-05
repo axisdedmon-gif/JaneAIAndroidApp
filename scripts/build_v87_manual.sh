@@ -30,8 +30,8 @@ python3 - <<'PY' ''',
 )
 
 replace_once(
-    "'v86.{run_number}-stable-update'",
-    "'v87.{run_number}-stable-update'",
+    '"v86.{run_number}-stable-update"',
+    '"v87.{run_number}-stable-update"',
     'V87 version assignment',
 )
 
@@ -58,6 +58,8 @@ text = text.replace(
 
 if 'patches/v87-ai-rag-response.patch' not in text:
     raise SystemExit('V87 patch path missing after transformation')
+if '"v87.{run_number}-stable-update"' not in text:
+    raise SystemExit('V87 version assignment missing after transformation')
 if 'versionName = "v87.' not in text:
     raise SystemExit('V87 version verification missing after transformation')
 if 'JaneAIAndroidSource_v87_real_ai_rag.zip' not in text:
