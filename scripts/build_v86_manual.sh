@@ -27,40 +27,52 @@ import base64
 import gzip
 import re
 
-def decode(text: str, label: str) -> bytes:
+
+def decode_payload(text: str, label: str) -> str:
     clean = re.sub(r"[^A-Za-z0-9+/=]", "", text)
     if "=" in clean:
         clean = clean.split("=", 1)[0]
     clean += "=" * ((4 - len(clean) % 4) % 4)
     try:
-        return gzip.decompress(base64.b64decode(clean))
+        return gzip.decompress(base64.b64decode(clean)).decode()
     except Exception as exc:
         raise SystemExit(f"{label} patch decode failed: {exc}") from exc
 
+
+def read_one(path: str) -> str:
+    return Path(path).read_text(encoding="utf-8", errors="ignore")
+
+
+def read_parts(pattern: str) -> str:
+    parts = sorted(Path("patches").glob(pattern))
+    if not parts:
+        raise SystemExit(f"No patch parts matched {pattern}")
+    return "".join(p.read_text(encoding="utf-8", errors="ignore") for p in parts)
+
 payloads = {
-    "v76": Path("patches/v76.patch.gz.b64").read_text(),
-    "v78": Path("patches/v78.patch.gz.b64").read_text(),
-    "v79": Path("patches/v79.patch.gz.b64").read_text(),
-    "v80": Path("patches/v80.patch.gz.b64").read_text(),
-    "v81": Path("patches/v81.patch.gz.b64").read_text(),
-    "v82": Path("patches/v82.patch.gz.b64").read_text(),
-    "v83": Path("patches/v83.patch.gz.b64").read_text(),
-    "v84": "".join(p.read_text() for p in sorted(Path("patches").glob("v84.part*.b64"))),
-    "v85": Path("patches/v85.patch.gz.b64").read_text(),
-    "v86": "".join(p.read_text() for p in sorted(Path("patches").glob("v86fix.part*.b64"))),
+    "v76": read_one("patches/v76.patch.gz.b64"),
+    "v78": read_one("patches/v78.patch.gz.b64"),
+    "v79": read_one("patches/v79.patch.gz.b64"),
+    "v80": read_one("patches/v80.patch.gz.b64"),
+    "v81": read_one("patches/v81.patch.gz.b64"),
+    "v82": read_one("patches/v82.patch.gz.b64"),
+    "v83": read_one("patches/v83.patch.gz.b64"),
+    "v84": read_parts("v84.part*.b64"),
+    "v85": read_one("patches/v85.patch.gz.b64"),
+    "v86": read_parts("v86fix.part*.b64"),
 }
+
 for version, encoded in payloads.items():
-    patch = decode(encoded, version).decode()
-    if not patch.startswith("diff "):
-        raise SystemExit(f"{version} is not a unified patch")
-    if version == "v86":
-        marker = "\ndiff -ruN v86old/scripts/configure_stable_signing.py"
-        patch = patch.split(marker, 1)[0].rstrip() + "\n"
-        if "app/src/main/assets/index.html" not in patch:
-            raise SystemExit("V86 response patch is missing")
-        if "scripts/configure_stable_signing.py" in patch:
-            raise SystemExit("V86 signing hunk was not removed")
-    Path(f"/tmp/{version}.patch").write_text(patch)
+    patch = decode_payload(encoded, version)
+    if version == "v86" and "scripts/configure_stable_signing.py" in patch:
+        occurrence = patch.index("scripts/configure_stable_signing.py")
+        section_start = patch.rfind("\ndiff ", 0, occurrence)
+        if section_start < 0:
+            raise SystemExit("Could not isolate the V86 signing hunk")
+        patch = patch[: section_start + 1]
+    if "app/src/main/assets/index.html" not in patch and version in {"v76", "v78", "v79", "v80", "v81", "v82", "v83", "v84", "v85", "v86"}:
+        raise SystemExit(f"{version} response patch is missing")
+    Path(f"/tmp/{version}.patch").write_text(patch, encoding="utf-8")
 PY
 
 apply_patch() {
@@ -94,17 +106,18 @@ apply_patch 1 /tmp/v86.patch
 python3 - <<'PY'
 from pathlib import Path
 import re
+
 path = Path("source/scripts/configure_stable_signing.py")
-text = path.read_text()
+text = path.read_text(encoding="utf-8", errors="ignore")
 updated, count = re.subn(
-    r'v\d+\.\{run_number\}-stable-update',
-    'v86.{run_number}-stable-update',
+    r"v\d+\.\{run_number\}-stable-update",
+    "v86.{run_number}-stable-update",
     text,
     count=1,
 )
 if count != 1:
     raise SystemExit("Could not set V86 in the signing script")
-path.write_text(updated)
+path.write_text(updated, encoding="utf-8")
 PY
 
 rm -rf /tmp/jane-model-viewer
