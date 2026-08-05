@@ -28,19 +28,19 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and validate V86
-        run: bash scripts/build_v86_manual.sh
+      - name: Build and validate V87
+        run: bash scripts/build_v87_manual.sh
 
-      - name: Upload signed V86 APK
+      - name: Upload signed V87 APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V86-reliable-list-answer-scroll-apk
+          name: JaneAI-V87-real-ai-rag-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-      - name: Upload exact V86 source
+      - name: Upload exact V87 source
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAIAndroidSource-v86-reliable-list-answer-scroll
-          path: JaneAIAndroidSource_v86_reliable_list_answer_scroll.zip
+          name: JaneAIAndroidSource-v87-real-ai-rag
+          path: JaneAIAndroidSource_v87_real_ai_rag.zip
           retention-days: 14
