@@ -1,0 +1,42 @@
+plugins {
+    id("com.android.application")
+}
+
+android {
+    signingConfigs {
+        janeStable {
+            storeFile file("jane-update-key.jks")
+            storePassword "JaneUpdate2026"
+            keyAlias "janeupdate"
+            keyPassword "JaneUpdate2026"
+        }
+    }
+    androidResources {
+        noCompress += ["task"]
+    }
+
+    namespace = "com.example.janeai"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.example.janeai"
+        minSdk = 24
+        targetSdk = 35
+        versionCode = 100445
+        versionName = "v88.445-stable-update"
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.janeStable
+        }
+    }
+}
+
+
+dependencies {
+    implementation("com.google.mediapipe:tasks-genai:0.10.27")
+
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+}

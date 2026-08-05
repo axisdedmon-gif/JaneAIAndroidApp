@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="64dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingLeft="14dp"
+    android:paddingRight="14dp"
+    android:background="@drawable/jane_widget_bg">
+
+    <TextView
+        android:id="@+id/widgetLogo"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:gravity="center"
+        android:text="J"
+        android:textStyle="bold"
+        android:textSize="24sp"
+        android:textColor="#FFE9B6"
+        android:background="@drawable/jane_widget_icon_bg" />
+
+    <TextView
+        android:id="@+id/widgetTalk"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:paddingLeft="14dp"
+        android:text="Talk to Jane"
+        android:textColor="#F7F3FF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widgetMic"
+        android:layout_width="46dp"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:text="🎙"
+        android:textSize="24sp"
+        android:textColor="#F7F3FF" />
+
+    <TextView
+        android:id="@+id/widgetImage"
+        android:layout_width="46dp"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:text="✦"
+        android:textSize="27sp"
+        android:textColor="#55DCFF" />
+</LinearLayout>

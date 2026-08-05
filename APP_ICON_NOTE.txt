@@ -1,0 +1,5 @@
+This project has been updated to use the generated Jane icon as the Android app launcher icon.
+Launcher files added:
+- app/src/main/res/mipmap-*/ic_launcher.png
+- app/src/main/res/mipmap-*/ic_launcher_round.png
+Manifest updated to reference @mipmap/ic_launcher and @mipmap/ic_launcher_round.

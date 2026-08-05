@@ -1,0 +1,8 @@
+.gradle/
+build/
+app/build/
+app/jane-update-key.jks
+app/src/main/assets/offline_ai/*.task
+*.iml
+.idea/
+.DS_Store

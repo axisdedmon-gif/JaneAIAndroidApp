@@ -1,0 +1,13 @@
+{
+  "format": "webp",
+  "transparent_backgrounds": true,
+  "max_dimension_px": 768,
+  "quality": 82,
+  "sets": [
+    "Kadi_a",
+    "Kadi_b",
+    "Kadi_c"
+  ],
+  "portraits_per_set": 23,
+  "total_portraits": 69
+}
