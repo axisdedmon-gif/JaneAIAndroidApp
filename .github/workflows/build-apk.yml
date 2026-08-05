@@ -37,10 +37,12 @@ jobs:
         run: bash scripts/build_v88_release.sh
 
       - name: Upload signed V88 APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: JaneAI-V88-true-offline-ai-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
           compression-level: 0
           retention-days: 1
 
