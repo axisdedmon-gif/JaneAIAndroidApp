@@ -61,6 +61,21 @@ def configure_gradle(source_root: Path) -> None:
     properties_file.write_text(properties, encoding='utf-8')
 
 
+def configure_engine(source_root: Path) -> None:
+    """Remove the one builder option not exposed by tasks-genai 0.10.27's Java API."""
+    engine = source_root / 'app' / 'src' / 'main' / 'java' / 'com' / 'example' / 'janeai' / 'OfflineKnowledgeEngine.java'
+    if not engine.is_file():
+        fail(f"missing {engine}")
+    text = engine.read_text(encoding='utf-8')
+    unsupported = re.compile(r'(?m)^\s*\.setTopK\(30\)\s*$\n?')
+    text, count = unsupported.subn('', text, count=1)
+    if count != 1:
+        fail(f'unsupported setTopK removal: expected exactly one match, found {count}')
+    if '.setTopK(' in text:
+        fail('offline engine still contains unsupported setTopK usage')
+    engine.write_text(text, encoding='utf-8')
+
+
 def validate_source(source_root: Path) -> None:
     build = (source_root / 'app' / 'build.gradle').read_text(encoding='utf-8')
     required_build = [
@@ -101,9 +116,9 @@ def validate_source(source_root: Path) -> None:
     ):
         if token not in engine_text:
             fail(f"offline engine is missing {token!r}")
-    for forbidden in ('HttpURLConnection', 'api/chat', 'gemini', 'placeholder'):
+    for forbidden in ('HttpURLConnection', 'api/chat', 'gemini', 'placeholder', '.setTopK('):
         if forbidden.lower() in engine_text.lower():
-            fail(f"offline engine contains forbidden network/placeholder token {forbidden!r}")
+            fail(f"offline engine contains forbidden network/placeholder/unsupported token {forbidden!r}")
 
     activity_text = activity.read_text(encoding='utf-8')
     for token in ('answerKnowledgeOffline', 'JaneNativeOfflineKnowledgeAnswerResult', 'OfflineKnowledgeEngine.getInstance'):
@@ -134,6 +149,7 @@ def main() -> None:
     args = parser.parse_args()
     root = args.source_root.resolve()
     configure_gradle(root)
+    configure_engine(root)
     validate_source(root)
     print('V88 source configuration and static validation passed.')
 
