@@ -70,6 +70,12 @@ jobs:
           cd source
           patch -p1 < /tmp/v81.patch
 
+      - name: Apply V82 offline answer index repair
+        run: |
+          base64 -d patches/v82.patch.gz.b64 | gzip -d > /tmp/v82.patch
+          cd source
+          patch -p4 < /tmp/v82.patch
+
       - name: Enable AndroidX for bundled OCR
         run: |
           touch source/gradle.properties
@@ -106,14 +112,26 @@ jobs:
           cd source
           python3 scripts/configure_stable_signing.py
 
-      - name: Verify V81 performance and import preservation
+      - name: Verify V82 offline answers and import preservation
         working-directory: source
         env:
           JANE_KEYSTORE_PASSWORD: JaneUpdate2026
         run: |
-          echo "=== V81 knowledge performance without data deletion ==="
+          echo "=== V82 offline retrieval and local answer synthesis ==="
+          grep -q "v82-offline-answer-index-repair" app/src/main/assets/index.html
+          grep -q "DB_VERSION=3" app/src/main/assets/index.html
+          grep -q "backfill the term index for knowledge imported before V81" app/src/main/assets/index.html
+          grep -q "cursor.update(row)" app/src/main/assets/index.html
+          grep -q "synthesizeOfflineAnswer" app/src/main/assets/index.html
+          grep -q "sentenceCandidates" app/src/main/assets/index.html
+          grep -q "Sources:" app/src/main/assets/index.html
+          grep -q "nativeArchivesUntouched:true" app/src/main/assets/index.html
+          grep -q 'versionName = "v82.' scripts/configure_stable_signing.py
+          ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v82.patch
+          ! grep -q '^[-+].*getKnowledgeArchiveDir' /tmp/v82.patch
+
+          echo "=== V81 performance and preservation retained ==="
           grep -q "v81-knowledge-performance-preserve-imports" app/src/main/assets/index.html
-          grep -q "DB_VERSION=2" app/src/main/assets/index.html
           grep -q 'createIndex("terms","terms",{unique:false,multiEntry:true})' app/src/main/assets/index.html
           grep -q "chunkCount" app/src/main/assets/index.html
           grep -q "SEARCH_CACHE_LIMIT" app/src/main/assets/index.html
@@ -121,7 +139,6 @@ jobs:
           grep -q "restoreKnowledgeArchives" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "full-library restoration is intentionally disabled" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "preservedNativeArchives:true" app/src/main/assets/index.html
-          grep -q 'versionName = "v81.' scripts/configure_stable_signing.py
           ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v81.patch
 
           echo "=== V80 selected-file acceptance and visible indexing retained ==="
@@ -159,7 +176,7 @@ jobs:
           grep -q "TextRecognition.getClient" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q '^android.useAndroidX=true' gradle.properties
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
-          grep -q 'versionName = "v81.' app/build.gradle
+          grep -q 'versionName = "v82.' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
@@ -191,5 +208,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V81-fast-knowledge-preserve-imports-apk
+          name: JaneAI-V82-offline-knowledge-answer-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
