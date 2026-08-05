@@ -1,17 +1,20 @@
-name: Build Jane Android APK
+name: Repair Jane V88 Responses
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: jane-v88-direct-build
+  group: jane-v88-response-repair
   cancel-in-progress: false
 
 jobs:
-  build:
+  repair:
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Apply rebased V88 response repair once'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
@@ -25,18 +28,43 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Verify Java 21 toolchain
-        run: |
-          JAVA_SPEC="$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.specification.version = //p')"
-          test "$JAVA_SPEC" = "21"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build flattened V88 directly
+      - name: Apply response repair
+        run: python3 scripts/fix_v88_responses.py
+
+      - name: Validate repaired response source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path('app/src/main/assets/index.html').read_text(encoding='utf-8')
+          match=re.search(r'<script id="v88-true-offline-knowledge-ai">(.*?)</script>',text,re.S)
+          if not match: raise SystemExit('V88 response block missing')
+          Path('/tmp/v88-response.js').write_text(match.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/v88-response.js
+          grep -q 'normalOnlineResponsesRestored:true' app/src/main/assets/index.html
+          grep -q 'escapedNewlineSpamBlocked:true' app/src/main/assets/index.html
+          grep -q 'countOccurrences' app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java
+          gradle :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Commit repaired response source
+        run: |
+          git config user.name "axisdedmon-gif"
+          git config user.email "axisdedmon@gmail.com"
+          git rm scripts/fix_v88_responses.py
+          git add app/src/main/assets/index.html app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java
+          git commit -m "Restore normal Jane responses and block malformed output"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+      - name: Build repaired V88 APK directly
         run: bash scripts/build_v88_direct.sh
 
-      - name: Upload signed V88 APK
+      - name: Upload repaired V88 APK
         uses: actions/upload-artifact@v4
         with:
           name: JaneAI-V88-response-repaired-apk
