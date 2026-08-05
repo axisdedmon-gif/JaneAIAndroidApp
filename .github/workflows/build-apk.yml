@@ -44,11 +44,17 @@ jobs:
           cd source
           patch -p1 < ../patches/v77-settings-menu-knowledge.patch
 
-      - name: Apply V78 Knowledge Base and Archives patch
+      - name: Apply V78 Knowledge Base patch
         run: |
           base64 -d patches/v78.patch.gz.b64 | gzip -d > /tmp/v78.patch
           cd source
           patch -p1 < /tmp/v78.patch
+
+      - name: Apply V79 native Archives route and UI patch
+        run: |
+          base64 -d patches/v79.patch.gz.b64 | gzip -d > /tmp/v79.patch
+          cd source
+          patch -p1 < /tmp/v79.patch
 
       - name: Enable AndroidX for bundled OCR
         run: |
@@ -84,61 +90,54 @@ jobs:
             -alias "$JANE_KEY_ALIAS" >/dev/null
 
           cd source
-          python3 ../scripts/configure_stable_signing.py
+          python3 scripts/configure_stable_signing.py
 
-      - name: Verify V78 Knowledge Base Archives and update identity
+      - name: Verify V79 exact scope
         working-directory: source
         env:
           JANE_KEYSTORE_PASSWORD: JaneUpdate2026
         run: |
-          echo "=== dedicated Knowledge Base and Archives screen ==="
-          grep -q "v78-knowledge-base-archives-css" app/src/main/assets/index.html
-          grep -q "v78-knowledge-base-archives-engine" app/src/main/assets/index.html
-          grep -q "Knowledge Base" app/src/main/assets/index.html
-          grep -q "Jane’s learned intelligence and browsable Archives" app/src/main/assets/index.html
-          grep -q "v78OpenKnowledgeBaseBtn" app/src/main/assets/index.html
-          grep -q "Open Knowledge Base / Archives" app/src/main/assets/index.html
-          grep -q "v78ArchiveList" app/src/main/assets/index.html
-          grep -q "v78ArchiveReader" app/src/main/assets/index.html
-          grep -q "v78ArchiveSearch" app/src/main/assets/index.html
-          grep -q "deleteDocument" app/src/main/assets/index.html
-          grep -q "getDocument" app/src/main/assets/index.html
-          grep -q "listDocuments" app/src/main/assets/index.html
+          echo "=== independent opaque Archives route and themed UI ==="
+          grep -q "v79-native-archives-route-ui-css" app/src/main/assets/index.html
+          grep -q "v79-native-archives-route-engine" app/src/main/assets/index.html
+          grep -q "Knowledge Base / Archives" app/src/main/assets/index.html
+          grep -q "openKnowledgeBaseMenuBtn" app/src/main/assets/index.html
+          grep -q "background:linear-gradient(180deg,#0b0710" app/src/main/assets/index.html
+          grep -q "v79-purple" app/src/main/assets/index.html
+          grep -q "v79-gold" app/src/main/assets/index.html
+          grep -q "#ownerModal #v77OfflineKnowledgePanel" app/src/main/assets/index.html
+          grep -q "closeOwnerSettings" app/src/main/assets/index.html
 
-          echo "=== strict knowledge-bounded answers ==="
+          echo "=== durable native originals and catalog ==="
+          grep -q "knowledge_archive" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "catalog.json" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "copyKnowledgeOriginal" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "writeKnowledgeArchiveText" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "listKnowledgeArchives" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "restoreNativeKnowledgeIndex" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "archiveLegacyKnowledgeStart" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "native-private-archive" app/src/main/java/com/example/janeai/MainActivity.java
+
+          echo "=== internal archive reader ==="
+          grep -q "previewKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "JaneNativeArchivePreviewReady" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "PdfRenderer.Page" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "v79ReaderImage" app/src/main/assets/index.html
+          grep -q "v79PageNav" app/src/main/assets/index.html
+          grep -q "JaneNativeArchiveTextComplete" app/src/main/assets/index.html
+
+          echo "=== knowledge-only answer behavior retained ==="
           grep -q "JANE KNOWLEDGE-BOUND MODE" app/src/main/assets/index.html
           grep -q "only factual knowledge you may use" app/src/main/assets/index.html
           grep -q "I don’t know that from the knowledge you’ve given me" app/src/main/assets/index.html
           grep -q "perform arithmetic or logical deductions" app/src/main/assets/index.html
 
-          echo "=== V77 settings and menu isolation retained ==="
-          grep -q "v77-settings-menu-knowledge-fix" app/src/main/assets/index.html
-          grep -q "v77-force-closed" app/src/main/assets/index.html
-          grep -q "ownerPhraseInput" app/src/main/assets/index.html
-          grep -q "Deathcore101!!" app/src/main/assets/index.html
-          grep -q "v77ImportKnowledgeBtn" app/src/main/assets/index.html
-
-          echo "=== V76 direct reply and native knowledge extraction retained ==="
-          grep -q "v76-dialog-reply-knowledge-css" app/src/main/assets/index.html
-          grep -q "dialogReplyComposer" app/src/main/assets/index.html
-          grep -q "sendDialogReply" app/src/main/assets/index.html
-          grep -q "v76-offline-knowledge-primary-engine" app/src/main/assets/index.html
-          grep -q "JaneKnowledgeImportStart" app/src/main/assets/index.html
-          grep -q "JaneKnowledgeImportChunk" app/src/main/assets/index.html
-          grep -q "JaneKnowledgeImportComplete" app/src/main/assets/index.html
-          grep -q "indexedDB.open" app/src/main/assets/index.html
+          echo "=== OCR and update identity retained ==="
           grep -q "com.google.mlkit:text-recognition:16.0.1" app/build.gradle
-          grep -q "PdfRenderer" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "TextRecognition.getClient" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "Intent.EXTRA_ALLOW_MULTIPLE" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "handleKnowledgePickerResult" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "getFileSize" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "fileBytes" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q '^android.useAndroidX=true' gradle.properties
-
-          echo "=== stable in-place update identity ==="
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
-          grep -q 'versionName = "v78.' app/build.gradle
+          grep -q 'versionName = "v79.' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
@@ -147,7 +146,7 @@ jobs:
             -storepass "$JANE_KEYSTORE_PASSWORD" \
             -alias janeupdate >/dev/null
 
-          echo "=== untouched app systems retained ==="
+          echo "=== untouched systems retained ==="
           grep -q "V75_STARTUP_OBSERVER_FIX" app/src/main/assets/index.html
           grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
           grep -q "v70-home-vitals-image3d-css" app/src/main/assets/index.html
@@ -169,5 +168,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V78-knowledge-base-archives-apk
+          name: JaneAI-V79-native-archives-route-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
