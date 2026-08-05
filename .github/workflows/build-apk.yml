@@ -19,11 +19,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
+
+      - name: Verify Java 21 toolchain
+        run: |
+          JAVA_SPEC="$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.specification.version = //p')"
+          test "$JAVA_SPEC" = "21"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
