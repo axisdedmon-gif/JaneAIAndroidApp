@@ -82,6 +82,12 @@ jobs:
           cd source
           patch -p1 < /tmp/v83.patch
 
+      - name: Apply V84 natural answers and offline import guarantee patch
+        run: |
+          base64 -d patches/v84.patch.gz.b64 | gzip -d > /tmp/v84.patch
+          cd source
+          patch -p1 < /tmp/v84.patch
+
       - name: Bundle model viewer inside the APK
         run: |
           rm -rf /tmp/jane-model-viewer
@@ -127,12 +133,40 @@ jobs:
           cd source
           python3 scripts/configure_stable_signing.py
 
-      - name: Verify V83 offline answers local renderer and import preservation
+      - name: Verify V84 natural answers offline import and preserved systems
         working-directory: source
         env:
           JANE_KEYSTORE_PASSWORD: JaneUpdate2026
         run: |
-          echo "=== V83 native Archive fallback and local answer synthesis ==="
+          echo "=== V84 natural Jane-style knowledge answers ==="
+          grep -q "JANE_V84_OFFLINE_KNOWLEDGE" app/src/main/assets/index.html
+          grep -q "naturalAnswerSynthesis:true" app/src/main/assets/index.html
+          grep -q "sourcesOnlyOnRequest:true" app/src/main/assets/index.html
+          grep -q "quotesOnlyOnRequest:true" app/src/main/assets/index.html
+          grep -q "asksForSources" app/src/main/assets/index.html
+          grep -q "asksForQuote" app/src/main/assets/index.html
+          grep -q "supplementalSentence" app/src/main/assets/index.html
+          grep -q "Write a fresh, natural answer in Jane's established personality" app/src/main/assets/index.html
+          grep -q "Do not mention filenames, sources, citations, page numbers, or quotations unless" app/src/main/assets/index.html
+          grep -q "preferredPositions" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "this page intentionally left blank" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q 'versionName = "v84.' scripts/configure_stable_signing.py
+
+          echo "=== V84 knowledge import is completely local ==="
+          grep -q "networkIndependentImport:true" app/src/main/assets/index.html
+          grep -q "connectionStateDoesNotModifyArchives:true" app/src/main/assets/index.html
+          grep -q "knowledge import is deliberately network-independent" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "copyKnowledgeOriginal" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "extractEmbeddedPdfText" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "recognizeImage" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "TextRecognition.getClient" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "com.google.mlkit:text-recognition:16.0.1" app/build.gradle
+          grep -q "com.tom-roush:pdfbox-android:2.0.27.0" app/build.gradle
+          ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v84.patch
+          ! grep -q '^[-+].*getKnowledgeArchiveDir' /tmp/v84.patch
+          ! grep -q '^[-+].*catalog.json' /tmp/v84.patch
+
+          echo "=== V83 native Archive fallback retained ==="
           grep -q "v83-offline-native-search-and-local-model" app/src/main/assets/index.html
           grep -q "JaneNativeKnowledgeSearchResult" app/src/main/assets/index.html
           grep -q "searchKnowledgeArchives" app/src/main/assets/index.html
@@ -141,7 +175,6 @@ jobs:
           grep -q "synthesizeLocalAnswer" app/src/main/assets/index.html
           grep -q "navigator.onLine===false" app/src/main/assets/index.html
           grep -q "preservedNativeArchives:true" app/src/main/assets/index.html
-          grep -q 'versionName = "v83.' scripts/configure_stable_signing.py
           ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v83.patch
           ! grep -q '^[-+].*getKnowledgeArchiveDir' /tmp/v83.patch
 
@@ -171,7 +204,7 @@ jobs:
 
           echo "=== stable update identity and untouched systems retained ==="
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
-          grep -q 'versionName = "v83.' app/build.gradle
+          grep -q 'versionName = "v84.' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
@@ -197,5 +230,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V83-offline-core-local-hologram-apk
+          name: JaneAI-V84-natural-offline-knowledge-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
