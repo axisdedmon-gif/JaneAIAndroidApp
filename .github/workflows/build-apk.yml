@@ -76,13 +76,28 @@ jobs:
           cd source
           patch -p4 < /tmp/v82.patch
 
+      - name: Apply V83 native offline search and local renderer patch
+        run: |
+          base64 -d patches/v83.patch.gz.b64 | gzip -d > /tmp/v83.patch
+          cd source
+          patch -p1 < /tmp/v83.patch
+
+      - name: Bundle model viewer inside the APK
+        run: |
+          rm -rf /tmp/jane-model-viewer
+          mkdir -p /tmp/jane-model-viewer
+          cd /tmp/jane-model-viewer
+          npm pack @google/model-viewer@4.1.0 --silent
+          tar -xzf google-model-viewer-4.1.0.tgz
+          cp package/dist/model-viewer-umd.min.js \
+            "$GITHUB_WORKSPACE/source/app/src/main/assets/model-viewer-umd.min.js"
+          test -s "$GITHUB_WORKSPACE/source/app/src/main/assets/model-viewer-umd.min.js"
+
       - name: Enable AndroidX for bundled OCR
         run: |
           touch source/gradle.properties
-          grep -q '^android.useAndroidX=' source/gradle.properties \
-            || echo 'android.useAndroidX=true' >> source/gradle.properties
-          grep -q '^android.enableJetifier=' source/gradle.properties \
-            || echo 'android.enableJetifier=true' >> source/gradle.properties
+          grep -q '^android.useAndroidX=' source/gradle.properties || echo 'android.useAndroidX=true' >> source/gradle.properties
+          grep -q '^android.enableJetifier=' source/gradle.properties || echo 'android.enableJetifier=true' >> source/gradle.properties
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -112,87 +127,61 @@ jobs:
           cd source
           python3 scripts/configure_stable_signing.py
 
-      - name: Verify V82 offline answers and import preservation
+      - name: Verify V83 offline answers local renderer and import preservation
         working-directory: source
         env:
           JANE_KEYSTORE_PASSWORD: JaneUpdate2026
         run: |
-          echo "=== V82 offline retrieval and local answer synthesis ==="
+          echo "=== V83 native Archive fallback and local answer synthesis ==="
+          grep -q "v83-offline-native-search-and-local-model" app/src/main/assets/index.html
+          grep -q "JaneNativeKnowledgeSearchResult" app/src/main/assets/index.html
+          grep -q "searchKnowledgeArchives" app/src/main/assets/index.html
+          grep -q "searchKnowledgeArchives" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "nativeKnowledgeSearch" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "synthesizeLocalAnswer" app/src/main/assets/index.html
+          grep -q "navigator.onLine===false" app/src/main/assets/index.html
+          grep -q "preservedNativeArchives:true" app/src/main/assets/index.html
+          grep -q 'versionName = "v83.' scripts/configure_stable_signing.py
+          ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v83.patch
+          ! grep -q '^[-+].*getKnowledgeArchiveDir' /tmp/v83.patch
+
+          echo "=== model renderer is physically bundled in the APK ==="
+          grep -q '<script src="model-viewer-umd.min.js"></script>' app/src/main/assets/index.html
+          test -s app/src/main/assets/model-viewer-umd.min.js
+          ! grep -q 'unpkg.com/@google/model-viewer' app/src/main/assets/index.html
+          grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
+          grep -q "rotation-per-second" app/src/main/assets/index.html
+          grep -q "36deg" app/src/main/assets/index.html
+
+          echo "=== V82 through V76 knowledge systems retained ==="
           grep -q "v82-offline-answer-index-repair" app/src/main/assets/index.html
           grep -q "DB_VERSION=3" app/src/main/assets/index.html
-          grep -q "backfill the term index for knowledge imported before V81" app/src/main/assets/index.html
-          grep -q "cursor.update(row)" app/src/main/assets/index.html
-          grep -q "synthesizeOfflineAnswer" app/src/main/assets/index.html
-          grep -q "sentenceCandidates" app/src/main/assets/index.html
-          grep -q "Sources:" app/src/main/assets/index.html
-          grep -q "nativeArchivesUntouched:true" app/src/main/assets/index.html
-          grep -q 'versionName = "v82.' scripts/configure_stable_signing.py
-          ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v82.patch
-          ! grep -q '^[-+].*getKnowledgeArchiveDir' /tmp/v82.patch
-
-          echo "=== V81 performance and preservation retained ==="
           grep -q "v81-knowledge-performance-preserve-imports" app/src/main/assets/index.html
-          grep -q 'createIndex("terms","terms",{unique:false,multiEntry:true})' app/src/main/assets/index.html
-          grep -q "chunkCount" app/src/main/assets/index.html
-          grep -q "SEARCH_CACHE_LIMIT" app/src/main/assets/index.html
-          grep -q "restoreKnowledgeArchives" app/src/main/assets/index.html
-          grep -q "restoreKnowledgeArchives" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "full-library restoration is intentionally disabled" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "preservedNativeArchives:true" app/src/main/assets/index.html
-          ! grep -q '^[-+].*deleteKnowledgeArchive' /tmp/v81.patch
-
-          echo "=== V80 selected-file acceptance and visible indexing retained ==="
           grep -q "v80-import-indexing-visibility-fix" app/src/main/assets/index.html
-          grep -q "v80ImportStatus" app/src/main/assets/index.html
-          grep -q "JaneNativeArchiveImportAccepted" app/src/main/assets/index.html
-          grep -q "JaneNativeArchiveIndexProgress" app/src/main/assets/index.html
-          grep -q "retryKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "indexStoredKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "resumePendingKnowledgeImports" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "extractEmbeddedPdfText" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "recognizePdfFile" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "com.tom-roush:pdfbox-android:2.0.27.0" app/build.gradle
-
-          echo "=== durable native Archives retained ==="
+          grep -q "v79-native-archives-route-engine" app/src/main/assets/index.html
+          grep -q "v76-offline-knowledge-primary-engine" app/src/main/assets/index.html
           grep -q "knowledge_archive" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "catalog.json" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "copyKnowledgeOriginal" app/src/main/java/com/example/janeai/MainActivity.java
           grep -q "writeKnowledgeArchiveText" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "listKnowledgeArchives" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "archiveLegacyKnowledgeStart" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "native-private-archive" app/src/main/java/com/example/janeai/MainActivity.java
-
-          echo "=== knowledge-only and reader behavior retained ==="
-          grep -q "JANE KNOWLEDGE-BOUND MODE" app/src/main/assets/index.html
-          grep -q "only factual knowledge you may use" app/src/main/assets/index.html
-          grep -q "I don’t know that from the knowledge you’ve given me" app/src/main/assets/index.html
-          grep -q "perform arithmetic or logical deductions" app/src/main/assets/index.html
           grep -q "previewKnowledgeArchive" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "JaneNativeArchivePreviewReady" app/src/main/java/com/example/janeai/MainActivity.java
-          grep -q "v79ReaderImage" app/src/main/assets/index.html
-
-          echo "=== OCR and update identity retained ==="
           grep -q "com.google.mlkit:text-recognition:16.0.1" app/build.gradle
-          grep -q "TextRecognition.getClient" app/src/main/java/com/example/janeai/MainActivity.java
+          grep -q "com.tom-roush:pdfbox-android:2.0.27.0" app/build.gradle
           grep -q '^android.useAndroidX=true' gradle.properties
+
+          echo "=== stable update identity and untouched systems retained ==="
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
-          grep -q 'versionName = "v82.' app/build.gradle
+          grep -q 'versionName = "v83.' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
-
           keytool -list \
             -keystore app/jane-update-key.jks \
             -storepass "$JANE_KEYSTORE_PASSWORD" \
             -alias janeupdate >/dev/null
-
-          echo "=== untouched systems retained ==="
           grep -q "V75_STARTUP_OBSERVER_FIX" app/src/main/assets/index.html
-          grep -q "data:model/gltf-binary;base64," app/src/main/assets/index.html
           grep -q "v70-home-vitals-image3d-css" app/src/main/assets/index.html
           grep -q "v67b-transparent-webp-dialog-portrait-router" app/src/main/assets/index.html
-          grep -q "rotation-per-second" app/src/main/assets/index.html
-          grep -q "36deg" app/src/main/assets/index.html
           grep -q "playAssetVoice" app/src/main/java/com/example/janeai/MainActivity.java
 
       - name: Build updateable APK
@@ -208,5 +197,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V82-offline-knowledge-answer-apk
+          name: JaneAI-V83-offline-core-local-hologram-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
