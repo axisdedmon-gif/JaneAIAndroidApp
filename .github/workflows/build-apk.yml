@@ -46,8 +46,9 @@ jobs:
 
       - name: Apply V78 Knowledge Base and Archives patch
         run: |
+          base64 -d patches/v78.patch.gz.b64 | gzip -d > /tmp/v78.patch
           cd source
-          patch -p1 < ../patches/v78-knowledge-base-archives.patch
+          patch -p1 < /tmp/v78.patch
 
       - name: Enable AndroidX for bundled OCR
         run: |
@@ -137,7 +138,7 @@ jobs:
 
           echo "=== stable in-place update identity ==="
           grep -q 'applicationId = "com.example.janeai"' app/build.gradle
-          grep -q 'versionName = "v7' app/build.gradle
+          grep -q 'versionName = "v78.' app/build.gradle
           grep -q "janeStable" app/build.gradle
           grep -q "signingConfig signingConfigs.janeStable" app/build.gradle
           test -f app/jane-update-key.jks
