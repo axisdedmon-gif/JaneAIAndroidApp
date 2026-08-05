@@ -1,6 +1,8 @@
 name: Build Jane Android APK
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -47,8 +49,10 @@ jobs:
           retention-days: 1
 
       - name: Upload reproducible V88 source
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: JaneAIAndroidSource-v88-true-offline-ai
           path: JaneAIAndroidSource_v88_true_offline_ai.zip
+          if-no-files-found: error
           retention-days: 1
