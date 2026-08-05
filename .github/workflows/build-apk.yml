@@ -222,8 +222,21 @@ jobs:
             -jarfile app/build/outputs/apk/debug/app-debug.apk \
             | grep -q "Owner: CN=Jane AI Assistant"
 
+      - name: Package exact V86 source
+        run: |
+          rm -f source/app/jane-update-key.jks
+          cd source
+          zip -q -r -9 ../JaneAIAndroidSource_v86_reliable_list_answer_scroll.zip . \
+            -x '.gradle/*' 'app/build/*' '**/.DS_Store'
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: JaneAI-V86-reliable-list-answer-scroll-apk
           path: source/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload exact V86 source
+        uses: actions/upload-artifact@v4
+        with:
+          name: JaneAIAndroidSource-v86-reliable-list-answer-scroll
+          path: JaneAIAndroidSource_v86_reliable_list_answer_scroll.zip
