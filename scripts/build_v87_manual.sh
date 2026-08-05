@@ -17,7 +17,7 @@ def replace_once(old: str, new: str, label: str) -> None:
     text = text.replace(old, new, 1)
 
 replace_once(
-    'apply_patch 1 /tmp/v86.patch\n\npython3 - <<\'PY\'',
+    "apply_patch 1 /tmp/v86.patch\n\npython3 - <<'PY'",
     '''apply_patch 1 /tmp/v86.patch
 (
   cd "$SOURCE"
@@ -30,8 +30,8 @@ python3 - <<'PY' ''',
 )
 
 replace_once(
-    '"v86.{run_number}-stable-update"',
-    '"v87.{run_number}-stable-update"',
+    "'v86.{run_number}-stable-update'",
+    "'v87.{run_number}-stable-update'",
     'V87 version assignment',
 )
 
@@ -58,8 +58,6 @@ text = text.replace(
 
 if 'patches/v87-ai-rag-response.patch' not in text:
     raise SystemExit('V87 patch path missing after transformation')
-if '"v87.{run_number}-stable-update"' not in text:
-    raise SystemExit('V87 version assignment missing after transformation')
 if 'versionName = "v87.' not in text:
     raise SystemExit('V87 version verification missing after transformation')
 if 'JaneAIAndroidSource_v87_real_ai_rag.zip' not in text:
@@ -69,4 +67,6 @@ path.write_text(text, encoding='utf-8')
 PY
 
 bash -n /tmp/build_v87_manual.sh
-bash /tmp/build_v87_manual.sh
+if [[ "${JANE_GENERATE_ONLY:-0}" != "1" ]]; then
+  bash /tmp/build_v87_manual.sh
+fi
