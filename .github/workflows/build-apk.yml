@@ -1,22 +1,25 @@
-name: Build Jane Android APK
+name: Flatten Jane V88 Repository
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: jane-android-manual-build
+  group: jane-v88-flatten-once
   cancel-in-progress: false
 
 jobs:
-  build:
+  flatten:
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Run one-time corrected V88 repository flattening'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
-      - name: Check out repository
+      - name: Check out patch-chain repository
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -28,10 +31,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and validate V88
+      - name: Build and validate completed V88
         run: bash scripts/build_v88_release.sh
 
-      - name: Upload signed V88 APK
+      - name: Preserve validated V88 APK
         uses: actions/upload-artifact@v4
         with:
           name: JaneAI-V88-true-offline-ai-apk
@@ -39,9 +42,12 @@ jobs:
           compression-level: 0
           retention-days: 14
 
-      - name: Upload V88 source
+      - name: Replace repository with flattened V88 source
+        run: bash scripts/flatten_v88_repo.sh
+
+      - name: Preserve flattened V88 source
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAIAndroidSource-v88-true-offline-ai
-          path: JaneAIAndroidSource_v88_true_offline_ai.zip
+          name: JaneAIAndroidSource-v88-flattened
+          path: JaneAIAndroidSource_v88_flattened.zip
           retention-days: 14
