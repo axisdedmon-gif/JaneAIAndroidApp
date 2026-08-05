@@ -149,7 +149,11 @@ grep -q 'com.google.mediapipe:tasks-genai:0.10.27' "$SOURCE/app/build.gradle"
 grep -Fq 'noCompress += ["task"]' "$SOURCE/app/build.gradle"
 grep -q 'class OfflineKnowledgeEngine' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
 grep -q 'LlmInference.createFromOptions' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
-grep -q 'generateResponse(prompt)' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
+grep -q 'LlmInferenceSession.createFromOptions' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
+grep -q 'LlmInferenceSession.LlmInferenceSessionOptions.builder' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
+grep -q 'session.addQueryChunk(prompt)' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
+grep -q 'session.generateResponse()' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
+grep -q 'setMaxTopK(30)' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
 grep -q 'sizeInTokens(prompt)' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
 grep -q 'expandSearchQuery' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
 grep -q 'raw PDF/OCR fragments are never presented' "$SOURCE/app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
@@ -167,6 +171,7 @@ required = (
     'versionName = "v88.',
     'JaneAIAndroidSource_v88_true_offline_ai.zip',
     'tasks-genai:0.10.27',
+    'LlmInferenceSession.createFromOptions',
     'qwen2_5_0_5b_q8.task',
     '546660344',
     'e608953f169aeb1bd7b9155fec2559825e08453fc209b84eda3a781ed0452fd2',
