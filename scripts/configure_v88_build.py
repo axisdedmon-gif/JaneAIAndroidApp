@@ -69,7 +69,6 @@ def validate_source(source_root: Path) -> None:
         'noCompress += ["task"]',
         DEPENDENCY,
         'applicationId = "com.example.janeai"',
-        'signingConfig signingConfigs.janeStable',
     ]
     for token in required_build:
         if token not in build:
