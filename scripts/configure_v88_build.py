@@ -62,17 +62,57 @@ def configure_gradle(source_root: Path) -> None:
 
 
 def configure_engine(source_root: Path) -> None:
-    """Remove the one builder option not exposed by tasks-genai 0.10.27's Java API."""
+    """Move sampling controls to the session builder used by tasks-genai 0.10.27."""
     engine = source_root / 'app' / 'src' / 'main' / 'java' / 'com' / 'example' / 'janeai' / 'OfflineKnowledgeEngine.java'
     if not engine.is_file():
         fail(f"missing {engine}")
     text = engine.read_text(encoding='utf-8')
-    unsupported = re.compile(r'(?m)^\s*\.setTopK\(30\)\s*$\n?')
-    text, count = unsupported.subn('', text, count=1)
+
+    inference_import = 'import com.google.mediapipe.tasks.genai.llminference.LlmInference;\n'
+    session_import = 'import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession;\n'
+    if inference_import not in text:
+        fail('offline engine is missing the LlmInference import')
+    if session_import not in text:
+        text = text.replace(inference_import, inference_import + session_import, 1)
+
+    replacement = '''    private String generate(String prompt) throws Exception {
+        synchronized (inferenceLock) {
+            ensureInference();
+            LlmInferenceSession.LlmInferenceSessionOptions sessionOptions =
+                LlmInferenceSession.LlmInferenceSessionOptions.builder()
+                    .setTopK(30)
+                    .setTemperature(0.28f)
+                    .setRandomSeed(73)
+                    .build();
+            try (LlmInferenceSession session =
+                    LlmInferenceSession.createFromOptions(inference, sessionOptions)) {
+                session.addQueryChunk(prompt);
+                return session.generateResponse();
+            }
+        }
+    }
+
+    private void ensureInference() throws Exception {
+        if (inference != null) return;
+        File model = ensureModelFile();
+        LlmInference.LlmInferenceOptions options = LlmInference.LlmInferenceOptions.builder()
+            .setModelPath(model.getAbsolutePath())
+            .setMaxTokens(MODEL_CONTEXT_TOKENS)
+            .setMaxTopK(30)
+            .build();
+        inference = LlmInference.createFromOptions(appContext, options);
+    }
+
+'''
+    pattern = re.compile(
+        r'    private String generate\(String prompt\) throws Exception \{.*?'
+        r'(?=    private File ensureModelFile\(\) throws Exception \{)',
+        re.DOTALL,
+    )
+    text, count = pattern.subn(replacement, text, count=1)
     if count != 1:
-        fail(f'unsupported setTopK removal: expected exactly one match, found {count}')
-    if '.setTopK(' in text:
-        fail('offline engine still contains unsupported setTopK usage')
+        fail(f'MediaPipe session API rewrite: expected exactly one match, found {count}')
+
     engine.write_text(text, encoding='utf-8')
 
 
@@ -107,7 +147,14 @@ def validate_source(source_root: Path) -> None:
     for token in (
         'class OfflineKnowledgeEngine',
         'LlmInference.createFromOptions',
-        'generateResponse(prompt)',
+        'LlmInferenceSession.createFromOptions',
+        'LlmInferenceSession.LlmInferenceSessionOptions.builder()',
+        'session.addQueryChunk(prompt)',
+        'session.generateResponse()',
+        '.setMaxTopK(30)',
+        '.setTopK(30)',
+        '.setTemperature(0.28f)',
+        '.setRandomSeed(73)',
         'sizeInTokens(prompt)',
         'expandSearchQuery',
         'raw PDF/OCR fragments are never presented',
@@ -116,9 +163,13 @@ def validate_source(source_root: Path) -> None:
     ):
         if token not in engine_text:
             fail(f"offline engine is missing {token!r}")
-    for forbidden in ('HttpURLConnection', 'api/chat', 'gemini', 'placeholder', '.setTopK('):
+    engine_options = engine_text.split('LlmInference.LlmInferenceOptions.builder()', 1)[1].split('.build();', 1)[0]
+    for forbidden_option in ('.setTopK(', '.setTemperature(', '.setRandomSeed('):
+        if forbidden_option in engine_options:
+            fail(f'engine options incorrectly contain session-only method {forbidden_option!r}')
+    for forbidden in ('HttpURLConnection', 'api/chat', 'gemini', 'placeholder'):
         if forbidden.lower() in engine_text.lower():
-            fail(f"offline engine contains forbidden network/placeholder/unsupported token {forbidden!r}")
+            fail(f"offline engine contains forbidden network/placeholder token {forbidden!r}")
 
     activity_text = activity.read_text(encoding='utf-8')
     for token in ('answerKnowledgeOffline', 'JaneNativeOfflineKnowledgeAnswerResult', 'OfflineKnowledgeEngine.getInstance'):
