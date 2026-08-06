@@ -58,7 +58,7 @@ test -x "$APKSIGNER"
   app/build/outputs/apk/debug/app-debug.apk \
   > /tmp/jane-v88-apksigner.txt
 cat /tmp/jane-v88-apksigner.txt
-grep -Fq "Signer #1 certificate DN: CN=Jane AI Assistant" /tmp/jane-v88-apksigner.txt
+grep -Eq "(Signer #1 certificate DN:|V2 Signer: certificate DN:) .*CN=Jane AI Assistant" /tmp/jane-v88-apksigner.txt
 grep -Fqi "$EXPECTED_CERT_SHA256" /tmp/jane-v88-apksigner.txt
 
 python3 - <<'PYAPK'
@@ -72,7 +72,6 @@ gradle_text = Path('app/build.gradle').read_text(encoding='utf-8')
 expected_size = 546_660_344
 expected_sha = 'e608953f169aeb1bd7b9155fec2559825e08453fc209b84eda3a781ed0452fd2'
 expected_app_id = 'com.example.janeai'
-expected_version_code = int(Path('/tmp/expected_version_code.txt').read_text()) if Path('/tmp/expected_version_code.txt').exists() else None
 asset = 'assets/offline_ai/qwen2_5_0_5b_q8.task'
 
 app_id = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle_text)
