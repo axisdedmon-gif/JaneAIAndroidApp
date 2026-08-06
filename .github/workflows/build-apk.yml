@@ -33,22 +33,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build flattened V88 directly
+      - name: Build versioned update-safe APK
         run: bash scripts/build_v88_direct.sh
 
-      - name: Upload signed V88 APK
+      - name: Upload versioned V88 APK only
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V88-response-repaired-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: JaneAI-V88-update-safe-apk
+          path: dist/*.apk
           if-no-files-found: error
           compression-level: 0
-          retention-days: 14
-
-      - name: Upload repaired flattened source
-        uses: actions/upload-artifact@v4
-        with:
-          name: JaneAIAndroidSource-v88-response-repaired
-          path: JaneAIAndroidSource_v88_flattened.zip
-          if-no-files-found: error
           retention-days: 14
