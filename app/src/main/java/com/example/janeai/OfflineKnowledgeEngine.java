@@ -11,11 +11,8 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -23,11 +20,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * V88: a real on-device language model for Jane's offline knowledge answers.
+ * V89 final offline knowledge responder.
  *
- * Retrieval remains local in MainActivity. This class performs the semantic
- * query expansion and final synthesis entirely on the phone. No network API is
- * consulted, and raw PDF/OCR fragments are never presented as the answer.
+ * Retrieval is performed locally by MainActivity from Jane's preserved native
+ * Archives. This class uses the bundled on-device language model only to reason
+ * over and rewrite that retrieved knowledge in Jane's conversational voice.
+ * No network service is required and no Archive files are modified here.
  */
 public final class OfflineKnowledgeEngine implements AutoCloseable {
     private static final String MODEL_ASSET = "offline_ai/qwen2_5_0_5b_q8.task";
@@ -35,13 +33,22 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
     private static final long EXPECTED_MODEL_BYTES = 546_660_344L;
     private static final int MODEL_CONTEXT_TOKENS = 1280;
     private static final int MAX_PROMPT_TOKENS = 930;
-    private static final int MAX_CONTEXT_CHARS = 5_200;
+    private static final int MAX_CONTEXT_CHARS = 5_400;
+
     private static final Pattern REQUESTED_COUNT = Pattern.compile(
-        "\\b(\\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\\b(?=[\\s\\S]{0,80}\\b(?:facts?|reasons?|points?|ideas?|examples?|things?|basics?|rules?|steps?|ways?)\\b)",
+        "\\b(\\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\\b(?=[\\s\\S]{0,90}\\b(?:facts?|reasons?|points?|ideas?|examples?|things?|basics?|rules?|steps?|ways?|must[- ]?knows?)\\b)",
         Pattern.CASE_INSENSITIVE
     );
-    private static final Pattern NUMBERED_ITEM = Pattern.compile("(?m)^\\s*(\\d{1,2})[.)]\\s+\\S");
+    private static final Pattern NUMBERED_ITEM = Pattern.compile(
+        "(?m)^\\s*(?:\\*\\*)?(\\d{1,2})[.)]?(?:\\*\\*)?\\s*(?:[-:])?\\s+\\S"
+    );
     private static final Pattern ADJACENT_REPEAT = Pattern.compile("(?i)\\b([a-z]{3,})\\s+\\1\\b");
+    private static final Pattern SOURCE_REQUEST = Pattern.compile(
+        "(?i)\\b(source|sources|citation|citations|cite|where did (?:you|that) get|which (?:book|file|document|pdf)|page number|what page)\\b"
+    );
+    private static final Pattern QUOTE_REQUEST = Pattern.compile(
+        "(?i)\\b(quote|quotation|exact words?|verbatim|word for word|passage)\\b"
+    );
 
     private static volatile OfflineKnowledgeEngine instance;
 
@@ -63,17 +70,16 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
     }
 
     /**
-     * Uses the local model to produce semantic retrieval terms. The original
-     * question is always retained, so a weak expansion cannot erase user intent.
+     * Uses the bundled model to add semantic retrieval terms. The original
+     * question is always searched too, so expansion cannot erase user intent.
      */
     public String expandSearchQuery(String question) throws Exception {
         String cleanQuestion = safeText(question, 900);
         if (cleanQuestion.isEmpty()) return "";
-        String system = "Create search terms for an offline document library. "
-            + "Return only 6 to 12 concise keywords or short phrases, separated by commas. "
-            + "Include synonyms and closely related concepts. Do not answer the question.";
-        String prompt = qwenPrompt(system, cleanQuestion);
-        String raw = generate(prompt);
+        String system = "Create search terms for a private offline document library. "
+            + "Return only 6 to 12 concise keywords or short phrases separated by commas. "
+            + "Include useful synonyms and closely related concepts. Do not answer the question.";
+        String raw = generate(qwenPrompt(system, cleanQuestion));
         String expansion = cleanGeneratedText(raw)
             .replaceAll("(?i)^(?:keywords?|search terms?|query)\\s*[:\\-]\\s*", "")
             .replaceAll("[\\n;|]+", ", ")
@@ -86,53 +92,106 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
     public String answer(String question, JSONArray hits, boolean ownerVerified) throws Exception {
         String cleanQuestion = safeText(question, 2_000);
         if (cleanQuestion.isEmpty()) return "What would you like me to answer?";
+
         int requestedCount = requestedCount(cleanQuestion);
-        String context = buildContext(hits);
-        String system = buildSystemInstruction(ownerVerified, requestedCount, !context.isEmpty());
-        String user = context.isEmpty()
-            ? "QUESTION:\n" + cleanQuestion
-            : "QUESTION:\n" + cleanQuestion + "\n\nLOCAL KNOWLEDGE:\n" + context;
+        boolean wantsSources = SOURCE_REQUEST.matcher(cleanQuestion).find();
+        boolean wantsQuote = QUOTE_REQUEST.matcher(cleanQuestion).find();
+        String context = buildContext(hits, wantsSources || wantsQuote);
+
+        // Jane's knowledge mode is intentionally bounded by what C.J. has taught her.
+        if (context.isEmpty()) {
+            return "I don't know that from the knowledge you've given me yet.";
+        }
+
+        String system = buildSystemInstruction(
+            ownerVerified,
+            requestedCount,
+            wantsSources,
+            wantsQuote
+        );
+        String user = "QUESTION:\n" + cleanQuestion + "\n\nPRIVATE KNOWLEDGE:\n" + context;
 
         String prompt = fitPrompt(system, user, context, cleanQuestion);
-        String answer = cleanGeneratedText(generate(prompt));
-        if (!validAnswer(answer, requestedCount)) {
+        String firstDraft = cleanGeneratedText(generate(prompt));
+        String answer = firstDraft;
+
+        if (!validAnswer(answer, requestedCount, wantsSources, wantsQuote)) {
             String repairSystem = system
-                + " Your previous draft failed formatting or clarity checks. Rewrite it from scratch. "
-                + "Do not discuss the failure and do not repeat words or broken source text.";
-            String repairUser = user + "\n\nFAILED DRAFT:\n" + safeText(answer, 1_500);
-            String repairPrompt = fitPrompt(repairSystem, repairUser, context, cleanQuestion);
-            answer = cleanGeneratedText(generate(repairPrompt));
+                + " Rewrite the draft completely. Keep the facts, but make the response sound like Jane speaking naturally to a person. "
+                + "Do not explain the repair. Do not use broken fragments or textbook-style lead-ins."
+                + (requestedCount > 0
+                    ? " The final response MUST contain exactly " + requestedCount + " numbered items and no extra numbered items."
+                    : "");
+            String repairUser = "QUESTION:\n" + cleanQuestion
+                + "\n\nPRIVATE KNOWLEDGE:\n" + context
+                + "\n\nDRAFT TO REWRITE:\n" + safeText(firstDraft, 1_500);
+            answer = cleanGeneratedText(generate(fitPrompt(repairSystem, repairUser, context, cleanQuestion)));
         }
-        if (!validAnswer(answer, requestedCount)) {
-            throw new IllegalStateException("The on-device model could not produce a clean answer after retrying.");
+
+        if (requestedCount > 0 && !hasExactRequestedCount(answer, requestedCount)) {
+            String coerced = coerceNumberedAnswer(answer, requestedCount);
+            if (coerced == null) coerced = coerceNumberedAnswer(firstDraft, requestedCount);
+            if (coerced != null) answer = coerced;
+        }
+
+        answer = finalPolish(answer, wantsSources, wantsQuote);
+
+        if (!validAnswer(answer, requestedCount, wantsSources, wantsQuote)) {
+            // A meaningful AI draft is better than a false "I couldn't answer" failure.
+            String salvaged = finalPolish(firstDraft, wantsSources, wantsQuote);
+            if (requestedCount > 0 && !hasExactRequestedCount(salvaged, requestedCount)) {
+                String coerced = coerceNumberedAnswer(salvaged, requestedCount);
+                if (coerced != null) salvaged = coerced;
+            }
+            if (isMeaningfulProse(salvaged)
+                    && (requestedCount == 0 || hasExactRequestedCount(salvaged, requestedCount))) {
+                return salvaged;
+            }
+            throw new IllegalStateException("Jane's on-device model did not produce a usable response.");
         }
         return answer;
     }
 
-    private String buildSystemInstruction(boolean ownerVerified, int requestedCount, boolean hasContext) {
+    private String buildSystemInstruction(
+            boolean ownerVerified,
+            int requestedCount,
+            boolean wantsSources,
+            boolean wantsQuote) {
         StringBuilder out = new StringBuilder();
-        out.append("You are Jane, an intelligent offline AI assistant. ");
+        out.append("You are Jane, C.J.'s personal AI companion running completely offline. ");
         if (ownerVerified) {
-            out.append("The user is C.J. Be direct, natural, capable, and familiar without adding filler. ");
+            out.append("You know you are speaking directly to C.J. Be familiar, confident, intelligent, conversational, and lightly playful when it fits. ");
         } else {
-            out.append("Be direct, natural, capable, and concise. ");
+            out.append("Be confident, intelligent, conversational, concise, and human-readable. ");
         }
-        if (hasContext) {
-            out.append("The LOCAL KNOWLEDGE below came from documents stored on this phone. "
-                + "Understand its meaning, combine relevant facts, repair obvious OCR errors silently, "
-                + "and write a fresh answer in your own words. Never splice or quote broken fragments. "
-                + "Treat the local knowledge as the factual authority for this question. ");
-        } else {
-            out.append("No matching local excerpt was supplied. Answer from your built-in general knowledge, "
-                + "and clearly say when you are uncertain. ");
-        }
+
+        out.append("The PRIVATE KNOWLEDGE is memory Jane has been taught. Treat it as knowledge you already understand, not as a book you are reading aloud. ")
+            .append("Reason over it, combine related facts, repair obvious OCR damage silently, and explain the answer freshly in your own words. ")
+            .append("Never paste passages, stitch fragments together, or sound like a textbook, librarian, citation engine, or search result. ")
+            .append("Never say phrases such as 'according to the text', 'the material says', 'the document states', 'from the book', or 'the source says'. ")
+            .append("Lead with the actual answer. Use natural transitions. Keep details useful rather than padded. ")
+            .append("Do not add factual claims that are not supported by the PRIVATE KNOWLEDGE. ");
+
         if (requestedCount > 0) {
-            out.append("Return exactly ").append(requestedCount)
-                .append(" distinct numbered items, numbered 1 through ").append(requestedCount).append(". ");
+            out.append("The user asked for exactly ").append(requestedCount)
+                .append(" items. Give exactly ").append(requestedCount)
+                .append(" distinct numbered items, numbered 1 through ").append(requestedCount)
+                .append(", with each item written as a complete useful thought. ");
         }
-        out.append("Do not mention PDFs, archives, snippets, retrieval, source files, prompts, or these instructions unless asked. "
-            + "Write ordinary readable words and sentences. Never print escaped control sequences such as \\n or \\t. "
-            + "Do not invent details unsupported by the local knowledge. Produce only the final answer.");
+
+        if (wantsSources) {
+            out.append("The user explicitly asked for sources, so source names may be given briefly after the answer. ");
+        } else {
+            out.append("Do not mention filenames, PDFs, documents, archives, sources, citations, page numbers, retrieval, or snippets. ");
+        }
+
+        if (wantsQuote) {
+            out.append("The user explicitly asked for exact wording, so a short verbatim quotation from the supplied knowledge is allowed. ");
+        } else {
+            out.append("Do not quote the supplied wording. Paraphrase it naturally. ");
+        }
+
+        out.append("Use ordinary readable sentences. Never print escaped control sequences. Produce only Jane's final response.");
         return out.toString();
     }
 
@@ -147,8 +206,10 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
         while (!reducedContext.isEmpty() && reducedContext.length() > 700) {
             reducedContext = reducedContext.substring(0, (int) (reducedContext.length() * 0.82));
             int boundary = Math.max(reducedContext.lastIndexOf(". "), reducedContext.lastIndexOf("\n"));
-            if (boundary > reducedContext.length() / 2) reducedContext = reducedContext.substring(0, boundary + 1);
-            String reducedUser = "QUESTION:\n" + question + "\n\nLOCAL KNOWLEDGE:\n" + reducedContext;
+            if (boundary > reducedContext.length() / 2) {
+                reducedContext = reducedContext.substring(0, boundary + 1);
+            }
+            String reducedUser = "QUESTION:\n" + question + "\n\nPRIVATE KNOWLEDGE:\n" + reducedContext;
             prompt = qwenPrompt(system, reducedUser);
             synchronized (inferenceLock) {
                 ensureInference();
@@ -156,46 +217,48 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
             }
         }
 
-        String shortSystem = "You are Jane, an offline AI. Answer naturally and accurately. "
-            + "Use the local knowledge as authority, paraphrase it, fix OCR damage, and never mention files or retrieval.";
+        String shortSystem = "You are Jane, C.J.'s offline AI companion. Answer in a natural conversational voice. "
+            + "Use only the supplied private knowledge for facts. Understand and paraphrase it; never recite it or mention files. "
+            + "If the question asks for a fixed number of items, return exactly that many numbered items.";
         String shortUser = "QUESTION:\n" + safeText(question, 900)
-            + (reducedContext.isEmpty() ? "" : "\n\nLOCAL KNOWLEDGE:\n" + safeText(reducedContext, 1_500));
+            + "\n\nPRIVATE KNOWLEDGE:\n" + safeText(reducedContext, 1_600);
         return qwenPrompt(shortSystem, shortUser);
     }
 
-    private String buildContext(JSONArray hits) {
+    private String buildContext(JSONArray hits, boolean includeSourceNames) {
         if (hits == null || hits.length() == 0) return "";
         StringBuilder out = new StringBuilder();
         Set<String> seen = new LinkedHashSet<>();
-        Map<String, Integer> sourceCounts = new HashMap<>();
         int total = 0;
         int materialNumber = 0;
-        for (int i = 0; i < hits.length() && i < 16; i++) {
+
+        for (int i = 0; i < hits.length() && i < 18; i++) {
             JSONObject hit = hits.optJSONObject(i);
             if (hit == null) continue;
-            String source = cleanSourceName(hit.optString("source", "Local source"));
+            String source = cleanSourceName(hit.optString("source", "Stored knowledge"));
             String text = cleanKnowledgeText(hit.optString("text", ""));
-            if (text.length() < 60) continue;
-            String key = text.substring(0, Math.min(220, text.length())).toLowerCase(Locale.US);
-            if (!seen.add(key)) continue;
+            if (text.length() < 50) continue;
 
-            // Prefer diversity across documents while still allowing a second strong excerpt.
-            int sourceCount = sourceCounts.containsKey(source) ? sourceCounts.get(source) : 0;
-            if (sourceCount >= 2) continue;
-            sourceCounts.put(source, sourceCount + 1);
-            if (text.length() > 950) text = text.substring(0, 950);
-            int addition = source.length() + text.length() + 12;
+            String key = text.substring(0, Math.min(240, text.length())).toLowerCase(Locale.US);
+            if (!seen.add(key)) continue;
+            if (text.length() > 1_050) text = text.substring(0, 1_050);
+
+            String prefix = includeSourceNames
+                ? "[Memory " + (++materialNumber) + " | " + source + "] "
+                : "[Memory " + (++materialNumber) + "] ";
+            int addition = prefix.length() + text.length() + 2;
             if (total + addition > MAX_CONTEXT_CHARS) break;
             if (out.length() > 0) out.append("\n\n");
-            materialNumber++;
-            out.append("[Material ").append(materialNumber).append("] ").append(text);
+            out.append(prefix).append(text);
             total += addition;
         }
         return out.toString().trim();
     }
 
     private String cleanSourceName(String value) {
-        return safeText(value, 120).replaceAll("(?i)\\.(pdf|docx?|txt|md|rtf)$", "").trim();
+        return safeText(value, 120)
+            .replaceAll("(?i)\\.(pdf|docx?|txt|md|rtf)$", "")
+            .trim();
     }
 
     private String cleanKnowledgeText(String value) {
@@ -205,9 +268,10 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
             .replaceAll("(?i)\\bthis page intentionally left blank\\b", " ")
             .replaceAll("(?i)\\b(?:copyright|isbn(?:-1[03])?)\\b[^\\n]{0,180}", " ")
             .replaceAll("(?i)\\btable of contents\\b", " ")
+            .replaceAll("(?i)\\bdesigned for teaching\\b[^.]{0,220}\\.?", " ")
             .replaceAll("\\s+", " ")
             .trim();
-        return safeText(text, 2_000);
+        return safeText(text, 2_100);
     }
 
     private String qwenPrompt(String system, String user) {
@@ -222,11 +286,10 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
             LlmInferenceSession.LlmInferenceSessionOptions sessionOptions =
                 LlmInferenceSession.LlmInferenceSessionOptions.builder()
                     .setTopK(30)
-                    .setTemperature(0.28f)
-                    .setRandomSeed(73)
+                    .setTemperature(0.36f)
+                    .setRandomSeed(89)
                     .build();
-            try (LlmInferenceSession session =
-                    LlmInferenceSession.createFromOptions(inference, sessionOptions)) {
+            try (LlmInferenceSession session = LlmInferenceSession.createFromOptions(inference, sessionOptions)) {
                 session.addQueryChunk(prompt);
                 return session.generateResponse();
             }
@@ -251,10 +314,12 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
         }
         File destination = new File(directory, MODEL_FILE);
         if (destination.exists() && destination.length() == EXPECTED_MODEL_BYTES) return destination;
+
         File temporary = new File(directory, MODEL_FILE + ".copying");
         if (temporary.exists() && !temporary.delete()) {
             throw new IllegalStateException("Could not reset the incomplete offline model copy.");
         }
+
         byte[] buffer = new byte[1024 * 1024];
         long copied = 0;
         try (InputStream input = appContext.getAssets().open(MODEL_ASSET);
@@ -266,6 +331,7 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
             }
             output.getFD().sync();
         }
+
         if (copied != EXPECTED_MODEL_BYTES) {
             temporary.delete();
             throw new IllegalStateException("The bundled offline AI model is incomplete.");
@@ -300,13 +366,31 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
 
         text = text
             .replaceAll("(?is)^\\s*(?:assistant|jane)\\s*[:\\-]\\s*", "")
+            .replaceAll("(?i)^\\s*(?:according to|based on|from)\\s+(?:the|your)?\\s*(?:provided|local|private)?\\s*(?:text|material|knowledge|document|source|archive)[,:]?\\s*", "")
             .replaceAll("[ \\t]+\\n", "\n")
             .replaceAll("\\n[ \\t]+", "\n")
             .replaceAll("\\n{3,}", "\n\n")
             .trim();
+
         int marker = text.toLowerCase(Locale.US).indexOf("<|im_");
         if (marker >= 0) text = text.substring(0, marker).trim();
         return text;
+    }
+
+    private String finalPolish(String answer, boolean wantsSources, boolean wantsQuote) {
+        String text = cleanGeneratedText(answer);
+        if (!wantsSources) {
+            text = text
+                .replaceAll("(?im)^\\s*(?:sources?|citations?)\\s*:\\s*.*$", "")
+                .replaceAll("(?i)\\b(?:in|from|according to)\\s+(?:the\\s+)?(?:pdf|document|archive|source|book|textbook)\\b[^.!?]*[.!?]?", " ");
+        }
+        if (!wantsQuote) {
+            text = text.replaceAll("(?m)^\\s*[>\"]\\s*", "");
+        }
+        return text
+            .replaceAll("[ \\t]{2,}", " ")
+            .replaceAll("\\n{3,}", "\n\n")
+            .trim();
     }
 
     private int countOccurrences(String value, String token) {
@@ -320,17 +404,32 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
         return count;
     }
 
-    private boolean validAnswer(String answer, int requestedCount) {
+    private boolean validAnswer(
+            String answer,
+            int requestedCount,
+            boolean wantsSources,
+            boolean wantsQuote) {
+        if (!isMeaningfulProse(answer)) return false;
+        String text = answer.trim();
+        if (countOccurrences(text, "\\n") >= 2 || countOccurrences(text, "\\t") >= 2) return false;
+        if (ADJACENT_REPEAT.matcher(text).find()) return false;
+        if (!wantsSources && text.matches("(?is).*\\b(?:local knowledge|source snippet|system prompt|retrieval|archive material)\\b.*")) {
+            return false;
+        }
+        if (!wantsQuote && text.matches("(?is).*\\b(?:the document states|the text says|the source says|according to the text)\\b.*")) {
+            return false;
+        }
+        return requestedCount <= 0 || hasExactRequestedCount(text, requestedCount);
+    }
+
+    private boolean isMeaningfulProse(String answer) {
         if (answer == null) return false;
         String text = answer.trim();
         if (text.length() < 24) return false;
-        if (countOccurrences(text, "\\n") >= 2 || countOccurrences(text, "\\t") >= 2) return false;
         if (text.matches("(?is)^(?:\\s*\\\\[nrt]|[\\\\/|._\\-\\s])+$")) return false;
-        if (ADJACENT_REPEAT.matcher(text).find()) return false;
-        if (text.matches("(?is).*\\b(?:local knowledge|pdf|archive|retrieval|source snippet|system prompt)\\b.*")) return false;
-
         String lettersOnly = text.replaceAll("[^A-Za-z]", "");
         if (lettersOnly.length() < 18) return false;
+
         String[] words = text.toLowerCase(Locale.US).split("[^a-z0-9']+");
         Set<String> distinctWords = new LinkedHashSet<>();
         int wordCount = 0;
@@ -340,16 +439,58 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
             distinctWords.add(word);
         }
         if (wordCount < 4 || distinctWords.size() < 4) return false;
-        if (wordCount >= 12 && distinctWords.size() * 4 < wordCount) return false;
+        return wordCount < 12 || distinctWords.size() * 4 >= wordCount;
+    }
 
-        if (requestedCount > 0) {
-            Matcher matcher = NUMBERED_ITEM.matcher(text);
-            List<Integer> numbers = new ArrayList<>();
-            while (matcher.find()) numbers.add(Integer.parseInt(matcher.group(1)));
-            if (numbers.size() != requestedCount) return false;
-            for (int i = 0; i < requestedCount; i++) if (numbers.get(i) != i + 1) return false;
+    private boolean hasExactRequestedCount(String text, int requestedCount) {
+        Matcher matcher = NUMBERED_ITEM.matcher(String.valueOf(text == null ? "" : text));
+        List<Integer> numbers = new ArrayList<>();
+        while (matcher.find()) numbers.add(Integer.parseInt(matcher.group(1)));
+        if (numbers.size() != requestedCount) return false;
+        for (int i = 0; i < requestedCount; i++) {
+            if (numbers.get(i) != i + 1) return false;
         }
         return true;
+    }
+
+    private String coerceNumberedAnswer(String draft, int requestedCount) {
+        if (requestedCount <= 0 || draft == null) return null;
+        String clean = cleanGeneratedText(draft);
+        if (clean.isEmpty()) return null;
+
+        List<String> candidates = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+
+        String[] lines = clean.split("\\n+");
+        for (String line : lines) {
+            String item = line
+                .replaceFirst("^\\s*(?:[-•*]|(?:\\*\\*)?\\d{1,2}[.)]?(?:\\*\\*)?)\\s*(?:[-:])?\\s*", "")
+                .trim();
+            addCandidate(candidates, seen, item);
+        }
+
+        if (candidates.size() < requestedCount) {
+            String[] sentences = clean.split("(?<=[.!?])\\s+");
+            for (String sentence : sentences) addCandidate(candidates, seen, sentence.trim());
+        }
+
+        if (candidates.size() < requestedCount) return null;
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < requestedCount; i++) {
+            String item = candidates.get(i).trim();
+            if (!item.matches(".*[.!?]$")) item += ".";
+            if (i > 0) out.append('\n');
+            out.append(i + 1).append(". ").append(item);
+        }
+        return out.toString();
+    }
+
+    private void addCandidate(List<String> candidates, Set<String> seen, String value) {
+        String item = safeText(value, 700);
+        if (item.length() < 20) return;
+        String key = item.toLowerCase(Locale.US).replaceAll("[^a-z0-9]+", " ").trim();
+        if (key.length() < 16 || !seen.add(key)) return;
+        candidates.add(item);
     }
 
     public static int requestedCount(String question) {
