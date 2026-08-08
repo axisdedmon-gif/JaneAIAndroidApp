@@ -1,0 +1,66 @@
+/* V89 final response-screen scrolling. This file changes only Jane's response route. */
+#vn.active,
+.vn.active{
+  overflow:hidden!important;
+}
+
+#vn.active .dialog,
+.vn.active .dialog{
+  display:flex!important;
+  flex-direction:column!important;
+  min-height:154px!important;
+  max-height:76vh!important;
+  overflow:hidden!important;
+  pointer-events:auto!important;
+}
+
+#vn.active #dialogText,
+.vn.active #dialogText{
+  display:block!important;
+  flex:1 1 auto!important;
+  min-height:84px!important;
+  max-height:none!important;
+  overflow-y:scroll!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-y:contain!important;
+  touch-action:pan-y!important;
+  pointer-events:auto!important;
+  padding-right:12px!important;
+  padding-bottom:18px!important;
+  scrollbar-width:auto!important;
+  scrollbar-color:rgba(215,176,98,.88) rgba(255,255,255,.06)!important;
+}
+
+#vn.active #dialogText::-webkit-scrollbar,
+.vn.active #dialogText::-webkit-scrollbar{
+  width:9px!important;
+  display:block!important;
+}
+#vn.active #dialogText::-webkit-scrollbar-track,
+.vn.active #dialogText::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.05)!important;
+  border-radius:999px!important;
+}
+#vn.active #dialogText::-webkit-scrollbar-thumb,
+.vn.active #dialogText::-webkit-scrollbar-thumb{
+  background:rgba(215,176,98,.88)!important;
+  border-radius:999px!important;
+}
+
+#vn.active .dialog-reply-composer,
+#vn.active .dialog-actions,
+.vn.active .dialog-reply-composer,
+.vn.active .dialog-actions{
+  flex:0 0 auto!important;
+}
+
+@media(max-height:760px){
+  #vn.active .dialog,
+  .vn.active .dialog{max-height:72vh!important;}
+}
+
+@media(max-width:640px){
+  #vn.active .dialog,
+  .vn.active .dialog{max-height:74vh!important;}
+}
