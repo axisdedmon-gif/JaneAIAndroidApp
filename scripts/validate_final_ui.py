@@ -65,8 +65,7 @@ raf_deadlock = '''requestAnimationFrame(() => {\n      document.documentElement.
 if raf_deadlock in scene_runtime:
     raise SystemExit("Launch visibility still depends on requestAnimationFrame while the native WebView starts hidden.")
 
-# Critical host contract: packaging a scene runtime is not enough. Android must inject it before
-# the Monolith module/voice layers, and the launch cannot be marked stable until a scene is mounted.
+# Android must prove a visible foreground scene, not merely that a DOM node exists.
 for token in (
     "monolith-scene-runtime-js",
     "file:///android_asset/monolith_scene_runtime.js",
@@ -76,10 +75,17 @@ for token in (
     "MAX_SCENE_VERIFY_ATTEMPTS",
     "sceneMounted = true",
     "MonolithCrashGuard.markStable(MonolithActivity.this)",
-    "exclusive scene did not mount",
+    "exclusive scene did not become visibly painted",
+    "primeCoreSurface()",
+    "startupCurtain",
+    "getComputedStyle",
+    "getBoundingClientRect",
+    "elementFromPoint",
+    "hitInLaunch",
+    "active===launch",
 ):
     if token not in activity_host:
-        raise SystemExit(f"Android scene-host contract is missing: {token}")
+        raise SystemExit(f"Android scene-paint contract is missing: {token}")
 
 scene_loader_pos = activity_host.index("file:///android_asset/monolith_scene_runtime.js")
 core_loader_pos = activity_host.index("file:///android_asset/monolith_core.js")
@@ -90,7 +96,6 @@ if not (scene_loader_pos < core_loader_pos < voice_loader_pos):
 if "if (safeMode) injectSafeModeIdentity();\n            else scheduleInjection();" in activity_host:
     raise SystemExit("Safe-mode launch still bypasses the Monolith scene runtime.")
 
-# The production Monolith module core must render directly into dedicated scene roots.
 for forbidden in ("ensureOverlay", "state.overlay", 'document.createElement("div");\n    overlay.id = "monolithModuleOverlay"'):
     if forbidden in core:
         raise SystemExit(f"Deprecated module-overlay architecture survived in monolith_core.js: {forbidden}")
@@ -130,8 +135,6 @@ if 'id="ownerGate" class="hidden"' not in index:
 if "House Dedmon Access" in index:
     raise SystemExit("Legacy House Dedmon overlay survived in index.html instead of the dedicated launch scene.")
 
-# Safe Base must be native-only. The old HudMainActivity component name survives only as an
-# activity-alias so the BIOS compatibility launch resolves to MonolithSafeBaseActivity.
 for token in (
     "WebView.disableWebView();",
     "disabled-safe-native",
@@ -192,7 +195,7 @@ for xml_path in (
     ET.parse(xml_path)
 
 print(
-    "Final Monolith architecture validated: Android injects the scene runtime before modules, "
-    "House Dedmon releases native-hidden startup synchronously with critical inline visibility CSS, "
-    "launch stability requires a mounted exclusive scene, and Safe Base is native/WebView-disabled."
+    "Final Monolith architecture validated: scene generation 4 releases hidden startup synchronously, "
+    "Android requires computed geometry and foreground hit-testing before Core becomes stable, and "
+    "Safe Base remains a native WebView-disabled recovery console."
 )
