@@ -18,15 +18,16 @@ FINAL_APK="$DIST_DIR/JaneAI-V89-final-v${RUN_NUMBER}-code${EXPECTED_VERSION_CODE
 mkdir -p "$MODEL_DIR" "$DIST_DIR"
 rm -f "$MODEL_FILE" "$FINAL_APK"
 
-# Load the final response CSS/JS after every historical inline patch so the
-# final response-screen behavior wins without rewriting the large index file.
+# Load V89 response behavior first, then the landscape command deck as the
+# final presentation layer without rewriting the embedded-model source file.
 python3 - <<'PYINJECT'
 from pathlib import Path
 
 path = Path('app/src/main/assets/index.html')
 text = path.read_text(encoding='utf-8')
-marker = '<!-- V89_FINAL_ASSET_INJECTION -->'
-block = '''\n<!-- V89_FINAL_ASSET_INJECTION -->\n<link rel="stylesheet" href="v89-final-response.css">\n<script src="v89-final-response.js"></script>\n'''
+text = text.replace('/Reveal / Edit/i', r'/Reveal\s*\/\s*Edit/i')
+marker = '<!-- JANE_COMMAND_DECK_ASSET_INJECTION -->'
+block = '''\n<!-- V89_FINAL_ASSET_INJECTION -->\n<link rel="stylesheet" href="v89-final-response.css">\n<script src="v89-final-response.js"></script>\n\n<!-- JANE_COMMAND_DECK_ASSET_INJECTION -->\n<link rel="stylesheet" href="jane_command_deck.css">\n<script src="jane_command_deck.js"></script>\n'''
 if marker not in text:
     if '</body>' not in text:
         raise SystemExit('Could not locate </body> for V89 final asset injection.')
@@ -44,6 +45,9 @@ grep -q 'JANE_V89_FINAL_RESPONSE' app/src/main/assets/v89-final-response.js
 grep -q 'V89_FINAL_ASSET_INJECTION' app/src/main/assets/index.html
 grep -q 'v89-final-response.css' app/src/main/assets/index.html
 grep -q 'v89-final-response.js' app/src/main/assets/index.html
+grep -q 'JANE_COMMAND_DECK_ASSET_INJECTION' app/src/main/assets/index.html
+grep -q 'jane_command_deck.css' app/src/main/assets/index.html
+grep -q 'jane_command_deck.js' app/src/main/assets/index.html
 test -s app/src/main/assets/model-viewer-umd.min.js
 grep -q 'data:model/gltf-binary;base64,' app/src/main/assets/index.html
 grep -q 'knowledge_archive' app/src/main/java/com/example/janeai/MainActivity.java
@@ -111,6 +115,8 @@ required_assets = {
     'assets/model-viewer-umd.min.js',
     'assets/v89-final-response.css',
     'assets/v89-final-response.js',
+    'assets/jane_command_deck.css',
+    'assets/jane_command_deck.js',
 }
 
 app_id = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle_text)

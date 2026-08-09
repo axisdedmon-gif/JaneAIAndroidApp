@@ -2,6 +2,10 @@ name: Build Jane Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - .github/trigger-v89-landscape
 
 permissions:
   contents: read

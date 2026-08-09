@@ -2,8 +2,14 @@ package com.example.janeai;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.AppOpsManager;
+import android.app.usage.UsageEvents;
+import android.app.usage.UsageStats;
+import android.app.usage.UsageStatsManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.Context;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -26,12 +32,20 @@ import android.graphics.pdf.PdfRenderer;
 import android.os.ParcelFileDescriptor;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.Uri;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
+import android.os.StatFs;
+import android.os.SystemClock;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.util.Base64;
 import android.view.View;
 import android.webkit.JavascriptInterface;
@@ -54,6 +68,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Calendar;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
@@ -113,7 +128,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         PDFBoxResourceLoader.init(getApplicationContext());
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
 
         webView = new WebView(this);
         setContentView(webView);
@@ -150,6 +165,17 @@ public class MainActivity extends Activity {
         webView.loadUrl("file:///android_asset/index.html");
         handleLaunchIntent(getIntent());
         mainHandler.postDelayed(this::resumePendingKnowledgeImports, 1800);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) {
+            mainHandler.postDelayed(() -> webView.evaluateJavascript(
+                "window.JaneDeviceVitalsChanged && window.JaneDeviceVitalsChanged();",
+                null
+            ), 300);
+        }
     }
 
 
@@ -1321,7 +1347,253 @@ public class MainActivity extends Activity {
         }, "JaneOfflineKnowledge").start();
     }
 
+    private boolean hasUsageAccessInternal() {
+        try {
+            AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+            if (appOps == null) return false;
+            int mode;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mode = appOps.unsafeCheckOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    getPackageName()
+                );
+            } else {
+                mode = appOps.checkOpNoThrow(
+                    AppOpsManager.OPSTR_GET_USAGE_STATS,
+                    android.os.Process.myUid(),
+                    getPackageName()
+                );
+            }
+            return mode == AppOpsManager.MODE_ALLOWED;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private String batteryHealthLabel(int health) {
+        switch (health) {
+            case BatteryManager.BATTERY_HEALTH_GOOD: return "nominal";
+            case BatteryManager.BATTERY_HEALTH_OVERHEAT: return "thermal-alert";
+            case BatteryManager.BATTERY_HEALTH_DEAD: return "critical";
+            case BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE: return "voltage-alert";
+            case BatteryManager.BATTERY_HEALTH_UNSPECIFIED_FAILURE: return "service-required";
+            case BatteryManager.BATTERY_HEALTH_COLD: return "cold-limit";
+            default: return "unverified";
+        }
+    }
+
+    private String batteryStatusLabel(int status) {
+        switch (status) {
+            case BatteryManager.BATTERY_STATUS_CHARGING: return "charging";
+            case BatteryManager.BATTERY_STATUS_FULL: return "charged";
+            case BatteryManager.BATTERY_STATUS_DISCHARGING: return "active";
+            case BatteryManager.BATTERY_STATUS_NOT_CHARGING: return "holding";
+            default: return "unknown";
+        }
+    }
+
+    private String thermalStatusLabel(int status) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return "unavailable";
+        switch (status) {
+            case PowerManager.THERMAL_STATUS_NONE: return "nominal";
+            case PowerManager.THERMAL_STATUS_LIGHT: return "elevated";
+            case PowerManager.THERMAL_STATUS_MODERATE: return "warm";
+            case PowerManager.THERMAL_STATUS_SEVERE: return "restricted";
+            case PowerManager.THERMAL_STATUS_CRITICAL: return "critical";
+            case PowerManager.THERMAL_STATUS_EMERGENCY: return "emergency";
+            case PowerManager.THERMAL_STATUS_SHUTDOWN: return "shutdown";
+            default: return "unverified";
+        }
+    }
+
+    private long startOfTodayMillis() {
+        Calendar start = Calendar.getInstance();
+        start.set(Calendar.HOUR_OF_DAY, 0);
+        start.set(Calendar.MINUTE, 0);
+        start.set(Calendar.SECOND, 0);
+        start.set(Calendar.MILLISECOND, 0);
+        return start.getTimeInMillis();
+    }
+
+    private JSONObject readUsageVitals(boolean usageAccess) throws Exception {
+        JSONObject usage = new JSONObject();
+        usage.put("granted", usageAccess);
+        usage.put("screenTimeMs", 0L);
+        usage.put("janeTimeMs", 0L);
+        usage.put("foregroundTimeMs", 0L);
+        if (!usageAccess) return usage;
+
+        long endTime = System.currentTimeMillis();
+        long beginTime = startOfTodayMillis();
+        UsageStatsManager manager = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
+        if (manager == null) return usage;
+
+        long janeTime = 0L;
+        long foregroundTime = 0L;
+        List<UsageStats> stats = manager.queryUsageStats(
+            UsageStatsManager.INTERVAL_DAILY,
+            beginTime,
+            endTime
+        );
+        if (stats != null) {
+            for (UsageStats stat : stats) {
+                long duration = Math.max(0L, stat.getTotalTimeInForeground());
+                foregroundTime += duration;
+                if (getPackageName().equals(stat.getPackageName())) janeTime += duration;
+            }
+        }
+
+        long screenTime = 0L;
+        boolean interactive = false;
+        boolean sawScreenEvent = false;
+        long interactiveSince = beginTime;
+        UsageEvents events = manager.queryEvents(beginTime, endTime);
+        if (events != null) {
+            UsageEvents.Event event = new UsageEvents.Event();
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event);
+                int type = event.getEventType();
+                if (type == UsageEvents.Event.SCREEN_INTERACTIVE) {
+                    if (!interactive) interactiveSince = Math.max(beginTime, event.getTimeStamp());
+                    interactive = true;
+                    sawScreenEvent = true;
+                } else if (type == UsageEvents.Event.SCREEN_NON_INTERACTIVE) {
+                    long eventTime = Math.min(endTime, event.getTimeStamp());
+                    if (interactive) {
+                        screenTime += Math.max(0L, eventTime - interactiveSince);
+                    } else if (!sawScreenEvent) {
+                        screenTime += Math.max(0L, eventTime - beginTime);
+                    }
+                    interactive = false;
+                    sawScreenEvent = true;
+                }
+            }
+        }
+        if (interactive) screenTime += Math.max(0L, endTime - interactiveSince);
+        if (!sawScreenEvent) {
+            PowerManager power = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (power != null && power.isInteractive()) {
+                screenTime = Math.max(0L, endTime - beginTime);
+            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                screenTime = foregroundTime;
+            }
+        }
+
+        usage.put("screenTimeMs", screenTime);
+        usage.put("janeTimeMs", janeTime);
+        usage.put("foregroundTimeMs", foregroundTime);
+        return usage;
+    }
+
+    private String buildDeviceVitalsJson() {
+        JSONObject vitals = new JSONObject();
+        try {
+            vitals.put("capturedAt", System.currentTimeMillis());
+            vitals.put("uptimeMs", SystemClock.elapsedRealtime());
+
+            Intent battery = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            int level = battery == null ? -1 : battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+            int scale = battery == null ? -1 : battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+            int health = battery == null ? BatteryManager.BATTERY_HEALTH_UNKNOWN
+                : battery.getIntExtra(BatteryManager.EXTRA_HEALTH, BatteryManager.BATTERY_HEALTH_UNKNOWN);
+            int status = battery == null ? BatteryManager.BATTERY_STATUS_UNKNOWN
+                : battery.getIntExtra(BatteryManager.EXTRA_STATUS, BatteryManager.BATTERY_STATUS_UNKNOWN);
+            int plugged = battery == null ? 0 : battery.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
+            int temperature = battery == null ? 0 : battery.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0);
+            int voltage = battery == null ? 0 : battery.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0);
+            int batteryPercent = level >= 0 && scale > 0 ? Math.round((level * 100f) / scale) : -1;
+            vitals.put("batteryPercent", batteryPercent);
+            vitals.put("batteryHealth", batteryHealthLabel(health));
+            vitals.put("batteryStatus", batteryStatusLabel(status));
+            vitals.put("batteryTemperatureC", temperature / 10.0d);
+            vitals.put("batteryVoltageMv", voltage);
+            vitals.put("externalPower", plugged != 0);
+
+            StatFs storage = new StatFs(getFilesDir().getAbsolutePath());
+            long storageTotal = storage.getTotalBytes();
+            long storageAvailable = storage.getAvailableBytes();
+            long storageUsed = Math.max(0L, storageTotal - storageAvailable);
+            vitals.put("storageTotalBytes", storageTotal);
+            vitals.put("storageAvailableBytes", storageAvailable);
+            vitals.put("storageUsedBytes", storageUsed);
+            vitals.put("storageUsedPercent", storageTotal > 0
+                ? Math.round((storageUsed * 1000.0d) / storageTotal) / 10.0d
+                : 0.0d);
+
+            ActivityManager activityManager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+            ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
+            if (activityManager != null) activityManager.getMemoryInfo(memory);
+            long memoryUsed = Math.max(0L, memory.totalMem - memory.availMem);
+            vitals.put("memoryTotalBytes", memory.totalMem);
+            vitals.put("memoryAvailableBytes", memory.availMem);
+            vitals.put("memoryUsedPercent", memory.totalMem > 0
+                ? Math.round((memoryUsed * 1000.0d) / memory.totalMem) / 10.0d
+                : 0.0d);
+            vitals.put("memoryPressure", memory.lowMemory);
+
+            PowerManager power = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            int thermal = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && power != null
+                ? power.getCurrentThermalStatus()
+                : -1;
+            vitals.put("thermalState", thermalStatusLabel(thermal));
+            vitals.put("powerReserve", power != null && power.isPowerSaveMode());
+
+            boolean connected = false;
+            String linkType = "offline";
+            ConnectivityManager connectivity = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (connectivity != null) {
+                Network network = connectivity.getActiveNetwork();
+                NetworkCapabilities caps = network == null ? null : connectivity.getNetworkCapabilities(network);
+                if (caps != null) {
+                    connected = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+                    if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) linkType = "wifi";
+                    else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) linkType = "cellular";
+                    else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) linkType = "ethernet";
+                    else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) linkType = "vpn";
+                    else linkType = connected ? "linked" : "offline";
+                }
+            }
+            vitals.put("linkConnected", connected);
+            vitals.put("linkType", linkType);
+
+            boolean usageAccess = hasUsageAccessInternal();
+            vitals.put("usage", readUsageVitals(usageAccess));
+        } catch (Exception error) {
+            try { vitals.put("telemetryError", error.getMessage() == null ? "Telemetry unavailable" : error.getMessage()); }
+            catch (Exception ignored) {}
+        }
+        return vitals.toString();
+    }
+
     public class JaneBridge {
+        @JavascriptInterface
+        public String getDeviceVitals() {
+            return MainActivity.this.buildDeviceVitalsJson();
+        }
+
+        @JavascriptInterface
+        public boolean hasUsageAccess() {
+            return MainActivity.this.hasUsageAccessInternal();
+        }
+
+        @JavascriptInterface
+        public void openUsageAccessSettings() {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                } catch (Exception packageScreenUnavailable) {
+                    try {
+                        startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+                    } catch (Exception ignored) {
+                        notifyJs("JaneDeviceVitalsError", "Android Usage Access settings are unavailable on this device.");
+                    }
+                }
+            });
+        }
+
         @android.webkit.JavascriptInterface
         public void pickKnowledgeFile() {
             // V54 compile fix: JaneBridge must call the outer MainActivity method.
