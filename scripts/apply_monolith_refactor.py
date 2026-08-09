@@ -9,24 +9,24 @@ for path in ROOT.rglob("*"):
     if path.suffix.lower() not in {".java", ".xml", ".html", ".js", ".css", ".gradle", ".md", ".txt", ".sh", ".py", ".json", ".yml", ".yaml"}:
         continue
     try:
-        text = path.read_text(encoding="utf-8")
+        source = path.read_text(encoding="utf-8")
     except Exception:
         continue
-    updated = text.replace("Jane AI Assistant", "Monolith AI").replace("JaneAIAndroid", "MonolithAIAndroid")
-    if updated != text:
+    updated = source.replace("Jane AI Assistant", "Monolith AI").replace("JaneAIAndroid", "MonolithAIAndroid")
+    if updated != source:
         path.write_text(updated, encoding="utf-8")
 
 engine = ROOT / "app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
 text = engine.read_text(encoding="utf-8")
-
 old = '''        StringBuilder out = new StringBuilder();
         out.append("You are Jane, C.J.'s personal AI companion running completely offline. ");'''
 new = '''        StringBuilder out = new StringBuilder();
         String activeCharacter = ai.monolith.app.CharacterRegistry.activeName(appContext);
         out.append("You are ").append(activeCharacter).append(", the active AI character hosted by Monolith AI and running completely offline. ");'''
-if old not in text:
+if old in text:
+    text = text.replace(old, new, 1)
+elif "CharacterRegistry.activeName(appContext)" not in text:
     raise SystemExit("Could not locate the primary offline personality instruction.")
-text = text.replace(old, new, 1)
 
 text = text.replace(
     '        out.append("The PRIVATE KNOWLEDGE is memory Jane has been taught. Treat it as knowledge you already understand, not as a book you are reading aloud. ")',
@@ -46,4 +46,26 @@ text = text.replace(
 text = text.replace("Jane's on-device model did not produce a usable response.", "The active on-device model did not produce a usable response.")
 engine.write_text(text, encoding="utf-8")
 
-print("Monolith application rebrand and adaptive offline personality policy applied.")
+# Extend the preserved Archives ingestion path to local audio/video transcription.
+main = ROOT / "app/src/main/java/com/example/janeai/MainActivity.java"
+source = main.read_text(encoding="utf-8")
+if '"audio/*"' not in source:
+    source = source.replace(
+        '            "image/*",\n            "text/*",',
+        '            "image/*",\n            "audio/*",\n            "video/*",\n            "text/*",',
+        1,
+    )
+media_anchor = '            byte[] bytes = readUriBytes(uri, 50 * 1024 * 1024);'
+media_block = '''            if (lowerMime.startsWith("audio/") || lowerMime.startsWith("video/") ||
+                lowerName.matches(".*\\\\.(wav|mp3|m4a|aac|ogg|flac|mp4|mkv|webm|mov)$")) {
+                notifyKnowledgeJs("JaneKnowledgeImportProgress", importId, name, "1", "1", "Local media transcription");
+                return ai.monolith.app.LocalMediaTranscriber.transcribeBlocking(this, uri);
+            }
+            byte[] bytes = readUriBytes(uri, 50 * 1024 * 1024);'''
+if "LocalMediaTranscriber.transcribeBlocking" not in source:
+    if media_anchor not in source:
+        raise SystemExit("Could not locate Archive binary extraction insertion point.")
+    source = source.replace(media_anchor, media_block, 1)
+main.write_text(source, encoding="utf-8")
+
+print("Monolith rebrand, adaptive personality policy, and local media Archive ingestion applied.")
