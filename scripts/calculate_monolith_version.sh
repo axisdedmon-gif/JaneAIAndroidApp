@@ -13,7 +13,11 @@ if ! [[ "$GITHUB_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 
-BASELINE_SHA="$(git log --format='%H%x09%s' --all | awk -F '\t' -v subject="$BASELINE_SUBJECT" '$2 == subject {print $1; exit}')"
+# Do not exit awk early while pipefail is enabled; an early consumer exit gives git SIGPIPE (141).
+BASELINE_SHA="$(
+  git log --format='%H%x09%s' --all \
+    | awk -F '\t' -v subject="$BASELINE_SUBJECT" '!found && $2 == subject {print $1; found=1}'
+)"
 if [[ -z "$BASELINE_SHA" ]]; then
   echo "Version baseline commit not found: $BASELINE_SUBJECT" >&2
   exit 1
@@ -38,7 +42,7 @@ Y=$((BASE_UI_GEN + UI_BUMPS))
 
 LATEST_STRUCTURAL_SHA="$(
   git log "$RANGE" --format='%H%x09%s' \
-    | awk -F '\t' '$2 ~ /^feat\((mono|ui)\):/ {print $1; exit}'
+    | awk -F '\t' '!found && $2 ~ /^feat\((mono|ui)\):/ {print $1; found=1}'
 )"
 
 if [[ -n "$LATEST_STRUCTURAL_SHA" ]]; then
