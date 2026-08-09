@@ -23,7 +23,7 @@
         <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
 
         <activity
-            android:name=".MainActivity"
+            android:name=".HudMainActivity"
             android:exported="true"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation">
@@ -36,7 +36,7 @@
             </intent-filter>
 
         </activity>
-    
+
         <receiver
             android:name=".JaneWidgetProvider"
             android:exported="true">
