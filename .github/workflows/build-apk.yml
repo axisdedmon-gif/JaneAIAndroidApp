@@ -3,6 +3,9 @@ run-name: "Monolith AI Beta 2.0.02"
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -20,16 +23,16 @@ jobs:
       - name: Check out Monolith AI source
         uses: actions/checkout@v5
 
-      - name: Set up Java 17
+      - name: Set up Java 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
-      - name: Verify Java 17 toolchain
+      - name: Verify Java 21 toolchain
         run: |
           JAVA_SPEC="$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^[[:space:]]*java.specification.version = //p')"
-          test "$JAVA_SPEC" = "17"
+          test "$JAVA_SPEC" = "21"
 
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
