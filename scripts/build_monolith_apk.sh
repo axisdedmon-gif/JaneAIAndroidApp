@@ -22,11 +22,10 @@ ESPEAK_ASSET_DIR="$TTS_ASSET_ROOT/espeak-ng-data"
 EXPECTED_APP_ID="ai.monolith.app"
 EXPECTED_CERT_SHA256="a1e4ab83fa08381ff109f0cdfb33ade18e9300b73b98b2ee0e8e42133a7879c6"
 BETA_VERSION="2.0.01"
-RUN_NUMBER="${GITHUB_RUN_NUMBER:-1}"
-EXPECTED_VERSION_CODE="$((200000 + RUN_NUMBER))"
+EXPECTED_VERSION_CODE="200001"
 EXPECTED_VERSION_NAME="Beta ${BETA_VERSION}"
 DIST_DIR="$ROOT/dist"
-FINAL_APK="$DIST_DIR/MonolithAI-Beta-${BETA_VERSION}-code${EXPECTED_VERSION_CODE}.apk"
+FINAL_APK="$DIST_DIR/MonolithAI-Beta-${BETA_VERSION}.apk"
 SIGNING_FILE="$ROOT/app/monolith-update-key.jks"
 
 mkdir -p "$MODEL_DIR" "$DIST_DIR" "$SHERPA_DIR" "$TTS_ASSET_ROOT"
@@ -142,8 +141,10 @@ required = {
  'assets/TEXTYMCSPEECHY_LICENSE.txt'
 }
 app_id = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle_text)
+version_code = re.search(r'versionCode\s*=\s*(\d+)', gradle_text)
 version_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle_text)
 if not app_id or app_id.group(1) != 'ai.monolith.app': raise SystemExit('Monolith applicationId validation failed.')
+if not version_code or version_code.group(1) != '200001': raise SystemExit('Monolith Beta 2.0.01 versionCode validation failed.')
 if not version_name or version_name.group(1) != 'Beta 2.0.01': raise SystemExit('Monolith Beta 2.0.01 version validation failed.')
 if not apk.is_file() or apk.stat().st_size <= expected_size: raise SystemExit('APK missing or too small for bundled offline model.')
 with zipfile.ZipFile(apk) as z:
