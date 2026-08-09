@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Process;
+import android.webkit.WebView;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -22,11 +23,16 @@ import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Process-level crash capture for Monolith AI.
+ * Process-level crash capture and WebView process isolation for Monolith AI.
  *
- * The launcher process remains alive while the full Monolith UI runs in :core. If :core or :safe
- * terminates because of an uncaught Java/ART exception, this class persists the complete stack
- * trace and returns the user to the bootstrap screen instead of leaving startup as a black box.
+ * The launcher process remains alive while the full Monolith UI runs in :core. The Safe Base UI
+ * runs in :safe so it can survive a core-process failure. Because both isolated UI processes use
+ * WebView, Android 9+ requires a unique WebView data directory for each process. That boundary is
+ * configured in attachBaseContext(), before providers or activities can initialize WebView.
+ *
+ * If :core or :safe terminates because of an uncaught Java/ART exception, this class persists the
+ * complete stack trace and returns the user to the bootstrap screen instead of leaving startup as
+ * a black box.
  */
 public final class MonolithApplication extends Application {
     public static final String EXTRA_SHOW_DIAGNOSTIC = "monolith_show_diagnostic";
@@ -34,10 +40,65 @@ public final class MonolithApplication extends Application {
     private static final String CRASH_FILE = "last_runtime_crash.txt";
     private static final AtomicBoolean HANDLING = new AtomicBoolean(false);
 
+    private static volatile String webViewProcessState = "unconfigured";
+    private static volatile Throwable webViewPreflightFailure;
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(base);
+        configureWebViewProcessIsolation(base);
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
         installCrashCapture();
+
+        Throwable preflightFailure = webViewPreflightFailure;
+        if (preflightFailure != null) {
+            throw new IllegalStateException(
+                "Monolith WebView process-isolation preflight failed: " + webViewProcessState,
+                preflightFailure
+            );
+        }
+    }
+
+    /**
+     * Android WebView permits only one process to own a given data directory. Monolith deliberately
+     * keeps :core and :safe isolated from one another, so both must receive stable, unique suffixes
+     * before either process touches any android.webkit API.
+     */
+    private static void configureWebViewProcessIsolation(Context context) {
+        final String processName = currentProcessName(context);
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            webViewProcessState = "legacy-api-default // process=" + processName;
+            return;
+        }
+
+        try {
+            if (processName != null && processName.endsWith(":core")) {
+                WebView.setDataDirectorySuffix("core");
+                webViewProcessState = "suffix=core // process=" + processName;
+                return;
+            }
+
+            if (processName != null && processName.endsWith(":safe")) {
+                WebView.setDataDirectorySuffix("safe");
+                webViewProcessState = "suffix=safe // process=" + processName;
+                return;
+            }
+
+            // The bootstrap / assistant host process must never create a WebView. Disabling it here
+            // catches accidental initialization before it can steal the default Chromium directory.
+            WebView.disableWebView();
+            webViewProcessState = "disabled // process=" + processName;
+        } catch (Throwable error) {
+            webViewProcessState = "ERROR // process=" + processName
+                + " // " + error.getClass().getName()
+                + ": " + String.valueOf(error.getMessage());
+            webViewPreflightFailure = error;
+        }
     }
 
     private void installCrashCapture() {
@@ -130,6 +191,7 @@ public final class MonolithApplication extends Application {
         report.append("MONOLITH AI RUNTIME DIAGNOSTIC\n");
         report.append("capturedAt=").append(format.format(new Date())).append('\n');
         report.append("process=").append(processName == null ? "unknown" : processName).append('\n');
+        report.append("webViewProcessState=").append(webViewProcessState).append('\n');
         report.append("thread=").append(thread == null ? "unknown" : thread.getName()).append('\n');
         report.append("sdk=").append(Build.VERSION.SDK_INT).append('\n');
         report.append("release=").append(Build.VERSION.RELEASE).append('\n');
