@@ -23,8 +23,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # MediaPipe GenAI 0.10.27 in this repository contains Java 21 class files.
-      # Android output bytecode remains JVM 1.8 as configured in app/build.gradle.
       - name: Set up Java JDK Environment
         uses: actions/setup-java@v5
         with:
@@ -66,14 +64,28 @@ jobs:
           node --check app/src/main/assets/monolith_voice_runtime_patch.js
           node --check app/src/main/assets/monolith_final_ui.js
 
-          # Scene package + dedicated House Dedmon route.
-          grep -q 'MONOLITH-SCENE-3' app/src/main/assets/monolith_scene_runtime.js
+          # Scene package + dedicated House Dedmon route + no hidden-WebView RAF deadlock.
+          grep -q 'MONOLITH-SCENE-4' app/src/main/assets/monolith_scene_runtime.js
           grep -q '__monolithExclusiveRouter' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolith-launch' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'House Dedmon Access' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'house_dedmon_crest.webp' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolithEnterButton' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolith_landscape_gen2.css' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolith-scene-initializing' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolithSceneMounted' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolithLoadState' app/src/main/assets/monolith_scene_runtime.js
+          grep -q '.monolith-launch-scene .dedmon-launch-shell' app/src/main/assets/monolith_scene_runtime.js
+          if grep -Fq 'requestAnimationFrame(() => {' app/src/main/assets/monolith_scene_runtime.js && \
+             grep -Fq 'document.documentElement.classList.remove("monolith-scene-initializing")' app/src/main/assets/monolith_scene_runtime.js; then
+            python3 - <<'PYRAF'
+from pathlib import Path
+text = Path('app/src/main/assets/monolith_scene_runtime.js').read_text(encoding='utf-8')
+deadlock = 'requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'
+if deadlock in text:
+    raise SystemExit('Launch visibility still depends on requestAnimationFrame while native WebView starts hidden.')
+PYRAF
+          fi
           grep -q '#home\[data-jane-scene="command"\]' app/src/main/assets/monolith_landscape_gen2.css
           grep -q '.dedmon-launch-shell' app/src/main/assets/monolith_landscape_gen2.css
 
@@ -133,7 +145,7 @@ jobs:
             echo "- UI generation: \`${UI_GEN}\`"
             echo "- patch: \`${PATCH_GEN}\`"
             echo '- launch flow: `BIOS -> House Dedmon Access -> Command Chamber`'
-            echo '- Core readiness: `requires mounted exclusive scene`'
+            echo '- Core readiness: `exclusive scene + synchronous visibility release`'
             echo '- Safe Base: `native recovery console / WebView disabled`'
             echo '- layout: `exclusive landscape scenes`'
             echo '- visual system: `cybernetic hard-sci-fi`'
