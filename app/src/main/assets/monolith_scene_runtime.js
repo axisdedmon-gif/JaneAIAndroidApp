@@ -300,6 +300,7 @@
   function ensureCommandDeck() {
     loadStyle("jane-command-deck-css", "file:///android_asset/jane_command_deck.css");
     loadStyle("monolith-final-ui-css", "file:///android_asset/monolith_final_ui.css");
+    loadStyle("monolith-landscape-gen2-css", "file:///android_asset/monolith_landscape_gen2.css");
     loadScript("monolith-final-ui-js", "file:///android_asset/monolith_final_ui.js");
 
     if (window.JaneSceneRouter) {
