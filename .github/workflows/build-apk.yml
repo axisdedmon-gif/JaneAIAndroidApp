@@ -1,8 +1,11 @@
 name: Monolith AI APK — Beta Builds
-run-name: "Monolith AI Beta 2.0.02"
+run-name: "Monolith AI Beta 2.0.03"
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -40,13 +43,13 @@ jobs:
         run: |
           test "$(gradle --version | sed -n 's/^Gradle //p' | head -n 1)" = "8.7"
 
-      - name: Build and validate Monolith AI Beta 2.0.02 APK
+      - name: Build and validate Monolith AI Beta 2.0.03 APK
         run: bash scripts/build_monolith_apk.sh
 
-      - name: Save Monolith AI Beta 2.0.02 APK artifact
+      - name: Save Monolith AI Beta 2.0.03 APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MonolithAI-Beta-2.0.02-apk
+          name: MonolithAI-Beta-2.0.03-apk
           path: dist/*.apk
           if-no-files-found: error
           compression-level: 0
