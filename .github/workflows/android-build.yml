@@ -47,7 +47,7 @@ jobs:
           python3 scripts/inject_monolith_ci_version.py
           python3 scripts/harden_bootstrap_diagnostics.py
 
-      - name: Validate Exclusive Scene Architecture
+      - name: Validate Runtime and Exclusive Scene Architecture
         run: |
           python3 scripts/strip_legacy_scene_overlays.py
           python3 scripts/validate_final_ui.py
@@ -65,6 +65,8 @@ jobs:
           node --check app/src/main/assets/monolith_scene_runtime.js
           node --check app/src/main/assets/monolith_voice_runtime_patch.js
           node --check app/src/main/assets/monolith_final_ui.js
+
+          # Scene package + dedicated House Dedmon route.
           grep -q 'MONOLITH-SCENE-3' app/src/main/assets/monolith_scene_runtime.js
           grep -q '__monolithExclusiveRouter' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolith-launch' app/src/main/assets/monolith_scene_runtime.js
@@ -74,6 +76,14 @@ jobs:
           grep -q 'monolith_landscape_gen2.css' app/src/main/assets/monolith_scene_runtime.js
           grep -q '#home\[data-jane-scene="command"\]' app/src/main/assets/monolith_landscape_gen2.css
           grep -q '.dedmon-launch-shell' app/src/main/assets/monolith_landscape_gen2.css
+
+          # Android must actually load that scene package before Monolith modules.
+          grep -q 'monolith-scene-runtime-js' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'file:///android_asset/monolith_scene_runtime.js' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'verifySceneMount()' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'exclusive scene did not mount' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'MonolithCrashGuard.markStable(MonolithActivity.this)' app/src/main/java/ai/monolith/app/MonolithActivity.java
+
           grep -q 'MONOLITH-CORE-2' app/src/main/assets/monolith_core.js
           if grep -q 'ensureOverlay\|state\.overlay' app/src/main/assets/monolith_core.js; then
             echo 'Deprecated module overlay architecture survived in monolith_core.js.' >&2
@@ -87,11 +97,20 @@ jobs:
             echo 'Fake biometric telemetry survived scene cleanup.' >&2
             exit 1
           fi
+
+          # Native BIOS + native Safe Base boundaries.
           grep -q 'android:name="ai.monolith.app.MonolithBootstrapActivity"' app/src/main/AndroidManifest.xml
+          grep -q 'android:name="ai.monolith.app.MonolithSafeBaseActivity"' app/src/main/AndroidManifest.xml
+          grep -q 'android:targetActivity="ai.monolith.app.MonolithSafeBaseActivity"' app/src/main/AndroidManifest.xml
           grep -q 'android:screenOrientation="sensorLandscape"' app/src/main/AndroidManifest.xml
+          grep -q 'WebView.disableWebView();' app/src/main/java/ai/monolith/app/MonolithApplication.java
+          grep -q 'disabled-safe-native' app/src/main/java/ai/monolith/app/MonolithApplication.java
+          grep -q 'clearStartupState' app/src/main/java/ai/monolith/app/MonolithCrashGuard.java
+          grep -q 'NATIVE RECOVERY CONSOLE // NO WEBVIEW' app/src/main/java/ai/monolith/app/MonolithSafeBaseActivity.java
           grep -q 'MONOLITH AI RUNTIME DIAGNOSTIC' app/src/main/java/ai/monolith/app/MonolithApplication.java
           grep -q 'DETERMINISTIC STARTUP BOUNDARY' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
           grep -q 'CORE BOOT LOCKED // CLEAR DIAGNOSTIC FIRST' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+
           test -s app/src/main/assets/monolith_landscape_gen2.css
           test -s app/src/main/assets/house_dedmon_crest.webp
           test -s app/src/main/res/drawable/scifi_hardware_frame.xml
@@ -114,6 +133,8 @@ jobs:
             echo "- UI generation: \`${UI_GEN}\`"
             echo "- patch: \`${PATCH_GEN}\`"
             echo '- launch flow: `BIOS -> House Dedmon Access -> Command Chamber`'
+            echo '- Core readiness: `requires mounted exclusive scene`'
+            echo '- Safe Base: `native recovery console / WebView disabled`'
             echo '- layout: `exclusive landscape scenes`'
             echo '- visual system: `cybernetic hard-sci-fi`'
           } >> "$GITHUB_STEP_SUMMARY"
