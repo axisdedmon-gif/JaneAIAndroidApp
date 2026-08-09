@@ -1,5 +1,5 @@
-name: Jane APK — Beta Builds
-run-name: "Beta 1.0.01 APK · run #${{ github.run_number }}"
+name: Monolith AI APK — Beta Builds
+run-name: "Monolith AI Beta 1.0.01 · run #${{ github.run_number }}"
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: jane-beta-apk-build
+  group: monolith-beta-apk-build
   cancel-in-progress: false
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - name: Check out Jane source
+      - name: Check out Monolith AI source
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -34,13 +34,13 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and validate Beta 1.0.01 APK
-        run: bash scripts/build_beta_apk.sh
+      - name: Build and validate Monolith AI Beta 1.0.01 APK
+        run: bash scripts/build_monolith_apk.sh
 
-      - name: Save Beta 1.0.01 APK artifact
+      - name: Save Monolith AI APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-Beta-1.0.01-apk
+          name: MonolithAI-Beta-1.0.01-apk
           path: dist/*.apk
           if-no-files-found: error
           compression-level: 0
