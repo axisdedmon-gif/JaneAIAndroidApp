@@ -21,8 +21,8 @@ ESPEAK_ASSET_DIR="$TTS_ASSET_ROOT/espeak-ng-data"
 
 EXPECTED_APP_ID="ai.monolith.app"
 EXPECTED_CERT_SHA256="a1e4ab83fa08381ff109f0cdfb33ade18e9300b73b98b2ee0e8e42133a7879c6"
-BETA_VERSION="2.0.02"
-EXPECTED_VERSION_CODE="200002"
+BETA_VERSION="2.0.03"
+EXPECTED_VERSION_CODE="200003"
 EXPECTED_VERSION_NAME="Beta ${BETA_VERSION}"
 DIST_DIR="$ROOT/dist"
 FINAL_APK="$DIST_DIR/MonolithAI-Beta-${BETA_VERSION}.apk"
@@ -44,16 +44,26 @@ python3 scripts/apply_monolith_refactor.py
 # Fast source validation before any large model transfer.
 grep -q 'applicationId = "ai.monolith.app"' app/build.gradle
 grep -q 'namespace = "ai.monolith.app"' app/build.gradle
-grep -q 'versionName = "Beta 2.0.02"' app/build.gradle
-grep -q 'versionCode = 200002' app/build.gradle
+grep -q 'versionName = "Beta 2.0.03"' app/build.gradle
+grep -q 'versionCode = 200003' app/build.gradle
 grep -q 'org.jetbrains.kotlin.android' app/build.gradle
 grep -q 'kotlinx-coroutines-android:1.11.0' app/build.gradle
+grep -q 'JvmTarget.JVM_1_8' app/build.gradle
+grep -q 'JavaVersion.VERSION_1_8' app/build.gradle
 grep -q 'sherpa-onnx-1.13.4.aar' app/build.gradle
 grep -q '<string name="app_name">Monolith AI</string>' app/src/main/res/values/strings.xml
+grep -q 'android:name="ai.monolith.app.MonolithApplication"' app/src/main/AndroidManifest.xml
+grep -q 'android:name="ai.monolith.app.MonolithBootstrapActivity"' app/src/main/AndroidManifest.xml
+grep -q 'android:name="ai.monolith.app.MonolithActivity"' app/src/main/AndroidManifest.xml
+grep -q 'android:process=":core"' app/src/main/AndroidManifest.xml
+grep -q 'android:name="ai.monolith.app.legacy.HudMainActivity"' app/src/main/AndroidManifest.xml
+grep -q 'android:process=":safe"' app/src/main/AndroidManifest.xml
 grep -q 'android.service.voice.VoiceInteractionService' app/src/main/AndroidManifest.xml
 grep -q 'BIND_VOICE_INTERACTION' app/src/main/AndroidManifest.xml
 grep -q 'MonolithAccessibilityService' app/src/main/AndroidManifest.xml
 grep -q 'MonolithSearchWidgetProvider' app/src/main/AndroidManifest.xml
+grep -q 'MONOLITH AI RUNTIME DIAGNOSTIC' app/src/main/java/ai/monolith/app/MonolithApplication.java
+grep -q 'STARTING MONOLITH CORE // ISOLATED PROCESS' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
 grep -q 'MonolithCrashGuard.beginLaunch' app/src/main/java/ai/monolith/app/MonolithActivity.java
 grep -q 'MonolithCoroutineScope' app/src/main/java/ai/monolith/app/MonolithActivity.java
 grep -q 'deferred-until-voice-module' app/src/main/java/ai/monolith/app/MonolithActivity.java
@@ -147,6 +157,7 @@ from pathlib import Path
 import hashlib, re, zipfile
 apk = Path('app/build/outputs/apk/debug/app-debug.apk')
 gradle_text = Path('app/build.gradle').read_text(encoding='utf-8')
+manifest_text = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
 expected_size = 546_660_344
 expected_sha = 'e608953f169aeb1bd7b9155fec2559825e08453fc209b84eda3a781ed0452fd2'
 asset = 'assets/offline_ai/qwen2_5_0_5b_q8.task'
@@ -160,8 +171,17 @@ app_id = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle_text)
 version_code = re.search(r'versionCode\s*=\s*(\d+)', gradle_text)
 version_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle_text)
 if not app_id or app_id.group(1) != 'ai.monolith.app': raise SystemExit('Monolith applicationId validation failed.')
-if not version_code or version_code.group(1) != '200002': raise SystemExit('Monolith Beta 2.0.02 versionCode validation failed.')
-if not version_name or version_name.group(1) != 'Beta 2.0.02': raise SystemExit('Monolith Beta 2.0.02 version validation failed.')
+if not version_code or version_code.group(1) != '200003': raise SystemExit('Monolith Beta 2.0.03 versionCode validation failed.')
+if not version_name or version_name.group(1) != 'Beta 2.0.03': raise SystemExit('Monolith Beta 2.0.03 version validation failed.')
+for required_manifest_token in [
+    'ai.monolith.app.MonolithApplication',
+    'ai.monolith.app.MonolithBootstrapActivity',
+    'android:process=":core"',
+    'ai.monolith.app.legacy.HudMainActivity',
+    'android:process=":safe"',
+]:
+    if required_manifest_token not in manifest_text:
+        raise SystemExit(f'Monolith startup boundary missing manifest token: {required_manifest_token}')
 if not apk.is_file() or apk.stat().st_size <= expected_size: raise SystemExit('APK missing or too small for bundled offline model.')
 with zipfile.ZipFile(apk) as z:
     names=set(z.namelist()); missing=required-names
@@ -176,9 +196,9 @@ with zipfile.ZipFile(apk) as z:
     with z.open(info) as f:
         for block in iter(lambda:f.read(1024*1024),b''): h.update(block)
     if h.hexdigest()!=expected_sha: raise SystemExit('Offline model SHA-256 mismatch.')
-print('Monolith AI Beta 2.0.02 startup hardening, identity, assistant services, local RAG, Piper runtime, modules, and APK assets validated.')
+print('Monolith AI Beta 2.0.03 isolated bootstrap, runtime diagnostics, identity, assistant services, local RAG, Piper runtime, modules, and APK assets validated.')
 PYAPK
 
 cp app/build/outputs/apk/debug/app-debug.apk "$FINAL_APK"
 test -s "$FINAL_APK"
-echo "Installable Monolith AI Beta 2.0.02 APK: $FINAL_APK"
+echo "Installable Monolith AI Beta 2.0.03 APK: $FINAL_APK"
