@@ -5,6 +5,13 @@ BOOTSTRAP = ROOT / "app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.
 
 text = BOOTSTRAP.read_text(encoding="utf-8")
 
+# Safe Base is now a dedicated native recovery console, not the legacy HudMainActivity WebView.
+text = text.replace(
+    "The proven base HUD remains\n * available in :safe for recovery testing.",
+    "A native WebView-free recovery console remains\n * available in :safe for deterministic diagnostics.",
+)
+text = text.replace("[WAIT] legacy HUD handshake", "[WAIT] native recovery console")
+
 clear_anchor = '''            showControls(true);\n        }, ButtonTone.UTILITY);'''
 clear_replacement = '''            showControls(true);\n            setCoreBootLocked(false);\n        }, ButtonTone.UTILITY);'''
 if clear_anchor in text:
@@ -52,5 +59,8 @@ for status in ("CORE ACTIVITY NOT FOUND", "CORE LAUNCH FAILED"):
         block = block[:insertion_end] + "\n            setCoreBootLocked(true);" + block[insertion_end:]
         text = text[:start] + block + text[end:]
 
+if "legacy HUD handshake" in text:
+    raise SystemExit("Bootstrap still describes Safe Base as the legacy HUD.")
+
 BOOTSTRAP.write_text(text, encoding="utf-8")
-print("Deterministic Startup Boundary hardened: unresolved diagnostics lock core boot while Safe Base and explicit clear/retry remain available.")
+print("Deterministic Startup Boundary hardened: unresolved diagnostics lock core boot and Safe Base is identified as a native recovery console.")
