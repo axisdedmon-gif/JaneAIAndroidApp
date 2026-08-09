@@ -9,7 +9,7 @@ import android.widget.RemoteViews;
 
 public class JaneWidgetProvider extends AppWidgetProvider {
     private PendingIntent makeIntent(Context context, String mode, int requestCode) {
-        Intent intent = new Intent(context, MainActivity.class);
+        Intent intent = new Intent(context, HudMainActivity.class);
         intent.putExtra("jane_mode", mode);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         return PendingIntent.getActivity(
