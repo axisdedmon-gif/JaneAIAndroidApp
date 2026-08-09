@@ -7,7 +7,9 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Process;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -91,9 +93,12 @@ public final class MonolithApplication extends Application {
     public static String readCrashReport(Context context) {
         File file = crashFile(context);
         if (!file.isFile()) return "";
-        try {
-            byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
-            return new String(bytes, StandardCharsets.UTF_8);
+        try (FileInputStream input = new FileInputStream(file);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+            return new String(output.toByteArray(), StandardCharsets.UTF_8);
         } catch (Throwable error) {
             return "Unable to read persisted runtime diagnostic: " + error.getClass().getSimpleName();
         }
