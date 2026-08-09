@@ -17,7 +17,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -37,6 +36,7 @@ public final class VoiceModelStore {
     private File activeWav;
     private String activeTranscript = "";
     private String activeDataset = "default";
+    private String lastImportedModelId = "";
 
     public VoiceModelStore(Context context) {
         this.context = context.getApplicationContext();
@@ -46,10 +46,11 @@ public final class VoiceModelStore {
         ensure(new File(root, "models"));
         ensure(new File(root, "imports"));
         ensure(new File(root, "exports"));
+        ensure(new File(root, "runtime"));
     }
 
     private static void ensure(File dir) {
-        if (!dir.exists()) dir.mkdirs();
+        if (dir != null && !dir.exists()) dir.mkdirs();
     }
 
     private static String safe(String value) {
@@ -163,21 +164,58 @@ public final class VoiceModelStore {
         return "imported_file";
     }
 
+    private String deriveModelId(String name) {
+        String id = name
+            .replaceAll("(?i)\\.onnx\\.json$", "")
+            .replaceAll("(?i)\\.onnx$", "")
+            .replaceAll("(?i)\\.json$", "");
+        if (id.equalsIgnoreCase("tokens.txt") || id.equalsIgnoreCase("tokens")) id = "";
+        return safe(id);
+    }
+
+    private File bestTokensTarget() {
+        if (!lastImportedModelId.isEmpty()) {
+            File dir = new File(new File(root, "models"), safe(lastImportedModelId));
+            if (dir.isDirectory()) return dir;
+        }
+        String active = activeModel();
+        if (active != null && !active.isEmpty()) {
+            File dir = new File(new File(root, "models"), safe(active));
+            if (dir.isDirectory()) return dir;
+        }
+        File[] modelDirs = new File(root, "models").listFiles(File::isDirectory);
+        File singleMissingTokens = null;
+        if (modelDirs != null) {
+            for (File dir : modelDirs) {
+                if (new File(dir, "model.onnx").isFile() && !new File(dir, "tokens.txt").isFile()) {
+                    if (singleMissingTokens != null) return null;
+                    singleMissingTokens = dir;
+                }
+            }
+        }
+        return singleMissingTokens;
+    }
+
     public synchronized String importAsset(Uri uri) throws Exception {
         String name = safe(displayName(uri));
         String lower = name.toLowerCase(Locale.US);
         File target;
-        if (lower.endsWith(".onnx") || lower.endsWith(".onnx.json") || lower.endsWith("tokens.txt")) {
-            String modelId = name.replaceAll("(?i)\\.onnx(?:\\.json)?$", "").replaceAll("(?i)tokens\\.txt$", "imported");
-            File modelDir = new File(new File(root, "models"), safe(modelId));
+        if (lower.endsWith("tokens.txt")) {
+            File modelDir = bestTokensTarget();
+            if (modelDir == null) throw new IllegalStateException("Import model.onnx first so tokens.txt can be attached to the correct voice model.");
+            target = new File(modelDir, "tokens.txt");
+        } else if (lower.endsWith(".onnx") || lower.endsWith(".onnx.json")) {
+            String modelId = deriveModelId(name);
+            File modelDir = new File(new File(root, "models"), modelId);
             ensure(modelDir);
+            lastImportedModelId = modelId;
             if (lower.endsWith(".onnx")) target = new File(modelDir, "model.onnx");
-            else if (lower.endsWith(".json")) target = new File(modelDir, "model.onnx.json");
-            else target = new File(modelDir, "tokens.txt");
+            else target = new File(modelDir, "model.onnx.json");
         } else {
             target = new File(new File(root, "imports"), name);
         }
         copy(uri, target);
+        PiperTtsEngine.invalidate();
         return target.getAbsolutePath();
     }
 
@@ -199,8 +237,10 @@ public final class VoiceModelStore {
     public synchronized boolean setActiveModel(String id) {
         File dir = new File(new File(root, "models"), safe(id));
         File model = new File(dir, "model.onnx");
-        if (!model.exists()) return false;
+        File tokens = new File(dir, "tokens.txt");
+        if (!model.isFile() || !tokens.isFile()) return false;
         context.getSharedPreferences("monolith.voice", Context.MODE_PRIVATE).edit().putString("active_model", safe(id)).apply();
+        PiperTtsEngine.invalidate();
         return true;
     }
 
@@ -215,8 +255,10 @@ public final class VoiceModelStore {
             out.put("recording", recording.get());
             out.put("sampleRate", SAMPLE_RATE);
             out.put("activeModel", activeModel());
-            out.put("runtime", "piper-compatible-workspace");
+            out.put("runtime", "sherpa-onnx-piper");
+            out.put("runtimeState", PiperTtsEngine.activeRuntimeState(context));
             out.put("training", "external-offline-piper-training");
+            out.put("conversion", "piper-onnx-plus-json-to-sherpa-onnx-plus-tokens");
             JSONArray datasets = new JSONArray();
             File[] dataDirs = new File(root, "datasets").listFiles(File::isDirectory);
             if (dataDirs != null) for (File dir : dataDirs) {
@@ -232,18 +274,21 @@ public final class VoiceModelStore {
             JSONArray models = new JSONArray();
             File[] modelDirs = new File(root, "models").listFiles(File::isDirectory);
             if (modelDirs != null) for (File dir : modelDirs) {
+                boolean hasOnnx = new File(dir, "model.onnx").isFile();
+                boolean hasTokens = new File(dir, "tokens.txt").isFile();
                 JSONObject row = new JSONObject();
                 row.put("id", dir.getName());
-                row.put("onnx", new File(dir, "model.onnx").exists());
-                row.put("config", new File(dir, "model.onnx.json").exists());
-                row.put("tokens", new File(dir, "tokens.txt").exists());
+                row.put("onnx", hasOnnx);
+                row.put("config", new File(dir, "model.onnx.json").isFile());
+                row.put("tokens", hasTokens);
+                row.put("runnable", hasOnnx && hasTokens);
                 row.put("active", dir.getName().equals(activeModel()));
                 models.put(row);
             }
             out.put("models", models);
             return out.toString();
         } catch (Exception error) {
-            return "{\"datasets\":[],\"models\":[]}";
+            return "{\"datasets\":[],\"models\":[],\"runtimeState\":\"error\"}";
         }
     }
 }
