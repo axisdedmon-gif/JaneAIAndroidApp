@@ -16,9 +16,25 @@ for path in ROOT.rglob("*"):
     if updated != source:
         path.write_text(updated, encoding="utf-8")
 
+# Move the preserved Java core into a Monolith-owned package at build time. The source
+# paths remain stable so the large proven files do not need destructive path rewrites,
+# while the compiled APK no longer carries the old application package namespace.
+legacy_sources = [
+    ROOT / "app/src/main/java/com/example/janeai/MainActivity.java",
+    ROOT / "app/src/main/java/com/example/janeai/HudMainActivity.java",
+    ROOT / "app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java",
+]
+for legacy in legacy_sources:
+    legacy_text = legacy.read_text(encoding="utf-8")
+    if "package com.example.janeai;" in legacy_text:
+        legacy_text = legacy_text.replace("package com.example.janeai;", "package ai.monolith.app.legacy;", 1)
+    elif "package ai.monolith.app.legacy;" not in legacy_text:
+        raise SystemExit(f"Could not normalize Java package for {legacy.name}.")
+    legacy.write_text(legacy_text, encoding="utf-8")
+
 # Adaptive local-RAG personality policy. Jane remains the female character, while
 # the active character name is resolved independently from the application identity.
-engine = ROOT / "app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
+engine = legacy_sources[2]
 text = engine.read_text(encoding="utf-8")
 old = '''        StringBuilder out = new StringBuilder();
         out.append("You are Jane, C.J.'s personal AI companion running completely offline. ");'''
@@ -49,7 +65,7 @@ text = text.replace("Jane's on-device model did not produce a usable response.",
 engine.write_text(text, encoding="utf-8")
 
 # Extend the preserved Archives ingestion path to local audio/video transcription.
-main = ROOT / "app/src/main/java/com/example/janeai/MainActivity.java"
+main = legacy_sources[0]
 source = main.read_text(encoding="utf-8")
 if '"audio/*"' not in source:
     source = source.replace(
@@ -130,9 +146,12 @@ if "PiperTtsEngine.invalidate();" not in source:
         source = source.replace(destroy_anchor, destroy_block, 1)
 main.write_text(source, encoding="utf-8")
 
-# Load the small Voice Module behavior patch after the primary Monolith UI layer.
+# Point the new application shell at the normalized Monolith-owned compatibility package
+# and load the Voice Module behavior patch after the primary UI layer.
 activity = ROOT / "app/src/main/java/ai/monolith/app/MonolithActivity.java"
 activity_text = activity.read_text(encoding="utf-8")
+activity_text = activity_text.replace("import com.example.janeai.HudMainActivity;", "import ai.monolith.app.legacy.HudMainActivity;")
+activity_text = activity_text.replace("import com.example.janeai.MainActivity;", "import ai.monolith.app.legacy.MainActivity;")
 if "monolith-voice-runtime-js" not in activity_text:
     activity_anchor = '''            "if(!document.getElementById('monolith-core-js')){var s=document.createElement('script');s.id='monolith-core-js';s.src='file:///android_asset/monolith_core.js';document.head.appendChild(s);}" +
             "else if(window.MonolithCore&&window.MonolithCore.refresh){window.MonolithCore.refresh();}})();";'''
@@ -145,4 +164,4 @@ if "monolith-voice-runtime-js" not in activity_text:
     activity_text = activity_text.replace(activity_anchor, activity_block, 1)
 activity.write_text(activity_text, encoding="utf-8")
 
-print("Monolith rebrand, adaptive RAG, media Archives, local Piper speech, and Voice Module integration applied.")
+print("Monolith package migration, adaptive RAG, media Archives, local Piper speech, and Voice Module integration applied.")
