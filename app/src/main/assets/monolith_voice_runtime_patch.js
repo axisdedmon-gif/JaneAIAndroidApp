@@ -2,11 +2,21 @@
   "use strict";
   if(window.MonolithVoiceRuntimePatch)return;
 
+  function ensureSceneRuntime(){
+    if(window.MonolithSceneRuntime){window.MonolithSceneRuntime.refresh?.();return;}
+    if(document.getElementById("monolith-scene-runtime-js"))return;
+    const script=document.createElement("script");
+    script.id="monolith-scene-runtime-js";
+    script.src="file:///android_asset/monolith_scene_runtime.js";
+    document.head.appendChild(script);
+  }
+
   function parseState(){
     try{return window.AndroidMonolith?JSON.parse(AndroidMonolith.getVoiceWorkspace()||"{}"):{};}catch(_){return {};}
   }
 
   function apply(){
+    ensureSceneRuntime();
     const overlay=document.getElementById("monolithModuleOverlay");
     if(!overlay||overlay.hidden)return;
     const voicePanel=overlay.querySelector(".monolith-voice-grid");
@@ -60,5 +70,6 @@
   observer.observe(document.documentElement,{childList:true,subtree:true});
   window.MonolithVoiceRuntimePatch={apply};
   setInterval(apply,1200);
+  ensureSceneRuntime();
   apply();
 })();
