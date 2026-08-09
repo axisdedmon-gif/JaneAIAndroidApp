@@ -47,19 +47,24 @@ for route in ("monolith-launch", "monolith-model", "monolith-voice", "monolith-r
         raise SystemExit(f"Exclusive scene runtime is missing route: {route}")
 
 for token in (
-    "MONOLITH-SCENE-3",
+    "MONOLITH-SCENE-4",
     "__monolithExclusiveRouter",
     "buildLaunchScene()",
     'sceneFor(name)',
     'house_dedmon_crest.webp',
     'House Dedmon Access',
     'monolithEnterButton',
+    'document.documentElement.classList.remove("monolith-scene-initializing");',
+    '.monolith-launch-scene .dedmon-launch-shell',
+    'dataset.monolithLoadState = "loaded"',
 ):
     if token not in scene_runtime:
-        raise SystemExit(f"Scene runtime generation-2 token is missing: {token}")
+        raise SystemExit(f"Scene runtime visible-startup token is missing: {token}")
 
-# Critical host contract: packaging a scene runtime is not enough. Android must inject it before
-# the Monolith module/voice layers, and the launch cannot be marked stable until a scene is mounted.
+raf_deadlock = '''requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'''
+if raf_deadlock in scene_runtime:
+    raise SystemExit("Launch visibility still depends on requestAnimationFrame while the native WebView starts hidden.")
+
 for token in (
     "monolith-scene-runtime-js",
     "file:///android_asset/monolith_scene_runtime.js",
@@ -69,10 +74,17 @@ for token in (
     "MAX_SCENE_VERIFY_ATTEMPTS",
     "sceneMounted = true",
     "MonolithCrashGuard.markStable(MonolithActivity.this)",
-    "exclusive scene did not mount",
+    "exclusive scene did not become visibly painted",
+    "primeCoreSurface()",
+    "startupCurtain",
+    "getComputedStyle",
+    "getBoundingClientRect",
+    "elementFromPoint",
+    "hitInLaunch",
+    "active===launch",
 ):
     if token not in activity_host:
-        raise SystemExit(f"Android scene-host contract is missing: {token}")
+        raise SystemExit(f"Android scene-paint contract is missing: {token}")
 
 scene_loader_pos = activity_host.index("file:///android_asset/monolith_scene_runtime.js")
 core_loader_pos = activity_host.index("file:///android_asset/monolith_core.js")
@@ -83,7 +95,6 @@ if not (scene_loader_pos < core_loader_pos < voice_loader_pos):
 if "if (safeMode) injectSafeModeIdentity();\n            else scheduleInjection();" in activity_host:
     raise SystemExit("Safe-mode launch still bypasses the Monolith scene runtime.")
 
-# The production Monolith module core must render directly into dedicated scene roots.
 for forbidden in ("ensureOverlay", "state.overlay", 'document.createElement("div");\n    overlay.id = "monolithModuleOverlay"'):
     if forbidden in core:
         raise SystemExit(f"Deprecated module-overlay architecture survived in monolith_core.js: {forbidden}")
@@ -123,12 +134,7 @@ if 'id="ownerGate" class="hidden"' not in index:
 if "House Dedmon Access" in index:
     raise SystemExit("Legacy House Dedmon overlay survived in index.html instead of the dedicated launch scene.")
 
-# Safe Base must be native-only. The old HudMainActivity component name survives only as an
-# activity-alias so the BIOS compatibility launch resolves to MonolithSafeBaseActivity.
-for token in (
-    "WebView.disableWebView();",
-    "disabled-safe-native",
-):
+for token in ("WebView.disableWebView();", "disabled-safe-native"):
     if token not in application:
         raise SystemExit(f"Native Safe Base WebView-disable contract is missing: {token}")
 
@@ -150,8 +156,6 @@ for activity in (
     "ai.monolith.app.MonolithActivity",
     "ai.monolith.app.MonolithSafeBaseActivity",
 ):
-    # Require a real <activity ...> tag. `\b` is insufficient because it also matches the
-    # word-boundary before the hyphen in <activity-alias>.
     pattern = re.compile(
         rf'<activity(?=\s)(?=[^>]*android:name="{re.escape(activity)}")(?=[^>]*android:screenOrientation="sensorLandscape")[^>]*>',
         re.DOTALL,
@@ -159,11 +163,7 @@ for activity in (
     if not pattern.search(manifest):
         raise SystemExit(f"Landscape lock missing for activity: {activity}")
 
-if re.search(
-    r'<activity(?=\s)[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity"',
-    manifest,
-    re.DOTALL,
-):
+if re.search(r'<activity(?=\s)[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity"', manifest, re.DOTALL):
     raise SystemExit("Legacy HudMainActivity is still registered as a launchable Safe Base activity.")
 
 alias_pattern = re.compile(
@@ -187,7 +187,7 @@ for xml_path in (
     ET.parse(xml_path)
 
 print(
-    "Final Monolith architecture validated: Android injects the scene runtime before modules, "
-    "launch stability requires a mounted scene, House Dedmon owns a dedicated landscape scene, "
-    "and Safe Base is a native WebView-disabled recovery console."
+    "Final Monolith architecture validated: scene generation 4 releases hidden startup synchronously, "
+    "Android requires computed geometry and foreground hit-testing before Core becomes stable, and "
+    "Safe Base remains a native WebView-disabled recovery console."
 )
