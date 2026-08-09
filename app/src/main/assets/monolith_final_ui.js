@@ -10,6 +10,10 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
+  function setText(node, value) {
+    if (node && node.textContent !== value) node.textContent = value;
+  }
+
   function commandDeckInitialized() {
     return Boolean(window.JaneSceneRouter || document.body.classList.contains("jane-deck-ready"));
   }
@@ -24,17 +28,11 @@
   }
 
   function normalizeCommandLabels() {
-    const telemetryTitle = $("#janeTelemetryPanel .telemetry-head strong");
-    const telemetryState = $("#janeTelemetryPanel .telemetry-head span");
-    const menuTitle = $("#janeMenuPanel .menu-head strong");
-    const menuState = $("#janeMenuPanel .menu-head span");
-    const coreTitle = $(".deck-core-title");
-
-    if (telemetryTitle) telemetryTitle.textContent = "CORE TELEMETRY";
-    if (telemetryState) telemetryState.textContent = "LIVE // LOCAL";
-    if (menuTitle) menuTitle.textContent = "MODULE LINKS";
-    if (menuState) menuState.textContent = "SELECT SCENE";
-    if (coreTitle) coreTitle.textContent = "COMMAND CHAMBER";
+    setText($("#janeTelemetryPanel .telemetry-head strong"), "CORE TELEMETRY");
+    setText($("#janeTelemetryPanel .telemetry-head span"), "LIVE // LOCAL");
+    setText($("#janeMenuPanel .menu-head strong"), "MODULE LINKS");
+    setText($("#janeMenuPanel .menu-head span"), "SELECT SCENE");
+    setText($(".deck-core-title"), "COMMAND CHAMBER");
 
     const replacements = {
       "telemetry-core": "INTEGRITY CORE",
@@ -46,8 +44,7 @@
       "telemetry-continuity": "SYSTEM CONTINUITY"
     };
     Object.entries(replacements).forEach(([id, label]) => {
-      const node = $(`#${id} .telemetry-label`);
-      if (node) node.textContent = label;
+      setText($(`#${id} .telemetry-label`), label);
     });
   }
 
@@ -93,7 +90,9 @@
   function normalizeChat() {
     const input = $("#userInput");
     if (input && input.value.trim() === "Tell me a riddle.") input.value = "";
-    if (input) input.placeholder = "Enter command, question, or archive request...";
+    if (input && input.placeholder !== "Enter command, question, or archive request...") {
+      input.placeholder = "Enter command, question, or archive request...";
+    }
 
     const consolePanel = $(".jane-chat-console");
     if (consolePanel && !$(".mono-console-label", consolePanel)) {
