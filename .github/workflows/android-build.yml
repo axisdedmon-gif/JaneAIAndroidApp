@@ -23,8 +23,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # MediaPipe GenAI 0.10.27 in this repository contains Java 21 class files.
-      # Android output bytecode remains JVM 1.8 as configured in app/build.gradle.
       - name: Set up Java JDK Environment
         uses: actions/setup-java@v5
         with:
@@ -66,22 +64,38 @@ jobs:
           node --check app/src/main/assets/monolith_voice_runtime_patch.js
           node --check app/src/main/assets/monolith_final_ui.js
 
-          # Scene package + dedicated House Dedmon route.
-          grep -q 'MONOLITH-SCENE-3' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'MONOLITH-SCENE-4' app/src/main/assets/monolith_scene_runtime.js
           grep -q '__monolithExclusiveRouter' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolith-launch' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'House Dedmon Access' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'house_dedmon_crest.webp' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolithEnterButton' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolith_landscape_gen2.css' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolith-scene-initializing' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolithSceneMounted' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolithLoadState' app/src/main/assets/monolith_scene_runtime.js
+          grep -q '.monolith-launch-scene .dedmon-launch-shell' app/src/main/assets/monolith_scene_runtime.js
+          python3 - <<'PYRAF'
+from pathlib import Path
+text = Path('app/src/main/assets/monolith_scene_runtime.js').read_text(encoding='utf-8')
+deadlock = 'requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'
+if deadlock in text:
+    raise SystemExit('Launch visibility still depends on requestAnimationFrame while native WebView starts hidden.')
+PYRAF
           grep -q '#home\[data-jane-scene="command"\]' app/src/main/assets/monolith_landscape_gen2.css
           grep -q '.dedmon-launch-shell' app/src/main/assets/monolith_landscape_gen2.css
 
-          # Android must actually load that scene package before Monolith modules.
           grep -q 'monolith-scene-runtime-js' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'file:///android_asset/monolith_scene_runtime.js' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'verifySceneMount()' app/src/main/java/ai/monolith/app/MonolithActivity.java
-          grep -q 'exclusive scene did not mount' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'exclusive scene did not become visibly painted' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'primeCoreSurface()' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'startupCurtain' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'getComputedStyle' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'getBoundingClientRect' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'elementFromPoint' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'hitInLaunch' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'active===launch' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'MonolithCrashGuard.markStable(MonolithActivity.this)' app/src/main/java/ai/monolith/app/MonolithActivity.java
 
           grep -q 'MONOLITH-CORE-2' app/src/main/assets/monolith_core.js
@@ -94,11 +108,10 @@ jobs:
             exit 1
           fi
           if grep -q '"72 BPM"\|"98.6°F"' app/src/main/assets/index.html; then
-            echo 'Fake biometric telemetry survived scene cleanup.' >&2
+            echo 'Fake biometric values survived scene cleanup.' >&2
             exit 1
           fi
 
-          # Native BIOS + native Safe Base boundaries.
           grep -q 'android:name="ai.monolith.app.MonolithBootstrapActivity"' app/src/main/AndroidManifest.xml
           grep -q 'android:name="ai.monolith.app.MonolithSafeBaseActivity"' app/src/main/AndroidManifest.xml
           grep -q 'android:targetActivity="ai.monolith.app.MonolithSafeBaseActivity"' app/src/main/AndroidManifest.xml
@@ -132,8 +145,8 @@ jobs:
             echo "- Monolith generation: \`${MONOLITH_GEN}\`"
             echo "- UI generation: \`${UI_GEN}\`"
             echo "- patch: \`${PATCH_GEN}\`"
-            echo '- launch flow: `BIOS -> House Dedmon Access -> Command Chamber`'
-            echo '- Core readiness: `requires mounted exclusive scene`'
+            echo '- launch flow: `BIOS -> native mounting curtain -> House Dedmon Access -> Command Chamber`'
+            echo '- Core readiness: `computed visibility + geometry + foreground hit-test`'
             echo '- Safe Base: `native recovery console / WebView disabled`'
             echo '- layout: `exclusive landscape scenes`'
             echo '- visual system: `cybernetic hard-sci-fi`'
