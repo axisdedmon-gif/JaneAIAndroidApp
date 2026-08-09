@@ -5,7 +5,6 @@ import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
-import android.media.AudioManager;
 import android.media.AudioTrack;
 
 import com.k2fsa.sherpa.onnx.GeneratedAudio;
@@ -128,29 +127,31 @@ public final class PiperTtsEngine {
             if (!tokens.isFile()) throw new IllegalStateException("Active Piper model requires sherpa conversion and tokens.txt.");
             File dataDir = ensureEspeakData(context);
 
-            OfflineTtsVitsModelConfig vits = OfflineTtsVitsModelConfig.builder()
-                .setModel(model.getAbsolutePath())
-                .setTokens(tokens.getAbsolutePath())
-                .setDataDir(dataDir.getAbsolutePath())
-                .setNoiseScale(0.667f)
-                .setNoiseScaleW(0.8f)
-                .setLengthScale(1.0f)
-                .build();
+            // The Android AAR ships sherpa's Kotlin API. From Java these data classes
+            // are configured through their generated no-arg constructors and setters,
+            // not the separate java-api Builder classes.
+            OfflineTtsVitsModelConfig vits = new OfflineTtsVitsModelConfig();
+            vits.setModel(model.getAbsolutePath());
+            vits.setTokens(tokens.getAbsolutePath());
+            vits.setDataDir(dataDir.getAbsolutePath());
+            vits.setNoiseScale(0.667f);
+            vits.setNoiseScaleW(0.8f);
+            vits.setLengthScale(1.0f);
 
-            OfflineTtsModelConfig modelConfig = OfflineTtsModelConfig.builder()
-                .setVits(vits)
-                .setNumThreads(Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)))
-                .setDebug(false)
-                .setProvider("cpu")
-                .build();
+            OfflineTtsModelConfig modelConfig = new OfflineTtsModelConfig();
+            modelConfig.setVits(vits);
+            modelConfig.setNumThreads(Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() / 2)));
+            modelConfig.setDebug(false);
+            modelConfig.setProvider("cpu");
 
-            OfflineTtsConfig config = OfflineTtsConfig.builder()
-                .setModel(modelConfig)
-                .setMaxNumSentences(1)
-                .setSilenceScale(0.18f)
-                .build();
+            OfflineTtsConfig config = new OfflineTtsConfig();
+            config.setModel(modelConfig);
+            config.setMaxNumSentences(1);
+            config.setSilenceScale(0.18f);
 
-            cachedTts = new OfflineTts(config);
+            // Null AssetManager selects sherpa's filesystem loader, required because
+            // Voice Module models live under getExternalFilesDir rather than assets.
+            cachedTts = new OfflineTts(null, config);
             loadedModelId = id;
             return cachedTts;
         }
