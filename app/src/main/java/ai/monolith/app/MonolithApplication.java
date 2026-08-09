@@ -23,16 +23,12 @@ import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Process-level crash capture and WebView process isolation for Monolith AI.
+ * Process-level crash capture and WebView ownership for Monolith AI.
  *
- * The launcher process remains alive while the full Monolith UI runs in :core. The Safe Base UI
- * runs in :safe so it can survive a core-process failure. Because both isolated UI processes use
- * WebView, Android 9+ requires a unique WebView data directory for each process. That boundary is
- * configured in attachBaseContext(), before providers or activities can initialize WebView.
- *
- * If :core or :safe terminates because of an uncaught Java/ART exception, this class persists the
- * complete stack trace and returns the user to the bootstrap screen instead of leaving startup as
- * a black box.
+ * The launcher process stays native. The full Monolith WebView exists only in :core and owns the
+ * unique "core" Chromium data directory. Safe Base is now a native recovery console in :safe and
+ * WebView is explicitly disabled there, eliminating both multi-process Chromium contention and the
+ * possibility of the legacy home shell appearing as a recovery UI.
  */
 public final class MonolithApplication extends Application {
     public static final String EXTRA_SHOW_DIAGNOSTIC = "monolith_show_diagnostic";
@@ -64,9 +60,8 @@ public final class MonolithApplication extends Application {
     }
 
     /**
-     * Android WebView permits only one process to own a given data directory. Monolith deliberately
-     * keeps :core and :safe isolated from one another, so both must receive stable, unique suffixes
-     * before either process touches any android.webkit API.
+     * Only :core may initialize WebView. The bootstrap/assistant process and native Safe Base both
+     * disable WebView before providers or activities can touch android.webkit.
      */
     private static void configureWebViewProcessIsolation(Context context) {
         final String processName = currentProcessName(context);
@@ -84,15 +79,13 @@ public final class MonolithApplication extends Application {
             }
 
             if (processName != null && processName.endsWith(":safe")) {
-                WebView.setDataDirectorySuffix("safe");
-                webViewProcessState = "suffix=safe // process=" + processName;
+                WebView.disableWebView();
+                webViewProcessState = "disabled-safe-native // process=" + processName;
                 return;
             }
 
-            // The bootstrap / assistant host process must never create a WebView. Disabling it here
-            // catches accidental initialization before it can steal the default Chromium directory.
             WebView.disableWebView();
-            webViewProcessState = "disabled // process=" + processName;
+            webViewProcessState = "disabled-bootstrap-native // process=" + processName;
         } catch (Throwable error) {
             webViewProcessState = "ERROR // process=" + processName
                 + " // " + error.getClass().getName()
@@ -113,7 +106,7 @@ public final class MonolithApplication extends Application {
             try {
                 writeCrashReport(this, processName, thread, error);
             } catch (Throwable ignored) {
-                // The crash path must never recursively fail while trying to persist diagnostics.
+                // The crash path must never recursively fail while persisting diagnostics.
             }
 
             if (isIsolatedUiProcess(processName)) {
@@ -165,9 +158,14 @@ public final class MonolithApplication extends Application {
         }
     }
 
+    /**
+     * Clearing the visible diagnostic also clears MonolithCrashGuard's hidden boot/safe-mode state.
+     * This makes BIOS "clear + retry" atomic instead of leaving a stale safe-mode flag behind.
+     */
     public static void clearCrashReport(Context context) {
         File file = crashFile(context);
         if (file.isFile()) file.delete();
+        MonolithCrashGuard.clearStartupState(context);
     }
 
     private static void writeCrashReport(
