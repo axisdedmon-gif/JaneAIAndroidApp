@@ -16,6 +16,8 @@ for path in ROOT.rglob("*"):
     if updated != source:
         path.write_text(updated, encoding="utf-8")
 
+# Adaptive local-RAG personality policy. Jane remains the female character, while
+# the active character name is resolved independently from the application identity.
 engine = ROOT / "app/src/main/java/com/example/janeai/OfflineKnowledgeEngine.java"
 text = engine.read_text(encoding="utf-8")
 old = '''        StringBuilder out = new StringBuilder();
@@ -66,6 +68,81 @@ if "LocalMediaTranscriber.transcribeBlocking" not in source:
     if media_anchor not in source:
         raise SystemExit("Could not locate Archive binary extraction insertion point.")
     source = source.replace(media_anchor, media_block, 1)
+
+# Route systemic speech through the selected local Piper model before the inherited
+# hosted voice path. If a local model is active but fails, report the local failure;
+# do not silently upload that text to a server.
+if "PiperTtsEngine.speakAsync" not in source:
+    speak_anchor = '''            if (requestedText.isEmpty()) {
+                notifyJs("JaneNativeAudioDone", "");
+                return;
+            }
+
+            final int requestId = voiceRequestCounter.incrementAndGet();'''
+    speak_block = '''            if (requestedText.isEmpty()) {
+                notifyJs("JaneNativeAudioDone", "");
+                return;
+            }
+
+            if (ai.monolith.app.PiperTtsEngine.hasRunnableActiveModel(MainActivity.this)) {
+                activeVoiceRequest = voiceRequestCounter.incrementAndGet();
+                ai.monolith.app.PiperTtsEngine.speakAsync(
+                    MainActivity.this,
+                    requestedText,
+                    new ai.monolith.app.PiperTtsEngine.Listener() {
+                        @Override public void onStarted() { notifyJs("JaneNativeAudioStarted", ""); }
+                        @Override public void onDone() { notifyJs("JaneNativeAudioDone", ""); }
+                        @Override public void onError(String message) {
+                            notifyJs("JaneNativeAudioError", message == null ? "Local Piper speech failed." : message);
+                        }
+                    }
+                );
+                return;
+            }
+
+            final int requestId = voiceRequestCounter.incrementAndGet();'''
+    if speak_anchor not in source:
+        raise SystemExit("Could not locate the inherited speak() bridge for local Piper routing.")
+    source = source.replace(speak_anchor, speak_block, 1)
+
+if "PiperTtsEngine.stop();" not in source:
+    stop_anchor = '''    private void stopAudio() {
+        activeVoiceRequest = voiceRequestCounter.incrementAndGet();'''
+    stop_block = '''    private void stopAudio() {
+        ai.monolith.app.PiperTtsEngine.stop();
+        activeVoiceRequest = voiceRequestCounter.incrementAndGet();'''
+    if stop_anchor not in source:
+        raise SystemExit("Could not locate stopAudio() for local Piper cancellation.")
+    source = source.replace(stop_anchor, stop_block, 1)
+
+source = source.replace(
+    'intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk to Jane");',
+    'intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk to " + ai.monolith.app.CharacterRegistry.activeName(MainActivity.this));',
+    1,
+)
+if "PiperTtsEngine.invalidate();" not in source:
+    destroy_anchor = '''    protected void onDestroy() {
+        try { OfflineKnowledgeEngine.getInstance(getApplicationContext()).close();'''
+    destroy_block = '''    protected void onDestroy() {
+        ai.monolith.app.PiperTtsEngine.invalidate();
+        try { OfflineKnowledgeEngine.getInstance(getApplicationContext()).close();'''
+    if destroy_anchor in source:
+        source = source.replace(destroy_anchor, destroy_block, 1)
 main.write_text(source, encoding="utf-8")
 
-print("Monolith rebrand, adaptive personality policy, and local media Archive ingestion applied.")
+# Load the small Voice Module behavior patch after the primary Monolith UI layer.
+activity = ROOT / "app/src/main/java/ai/monolith/app/MonolithActivity.java"
+activity_text = activity.read_text(encoding="utf-8")
+if "monolith-voice-runtime-js" not in activity_text:
+    activity_anchor = '''            "if(!document.getElementById('monolith-core-js')){var s=document.createElement('script');s.id='monolith-core-js';s.src='file:///android_asset/monolith_core.js';document.head.appendChild(s);}" +
+            "else if(window.MonolithCore&&window.MonolithCore.refresh){window.MonolithCore.refresh();}})();";'''
+    activity_block = '''            "if(!document.getElementById('monolith-core-js')){var s=document.createElement('script');s.id='monolith-core-js';s.src='file:///android_asset/monolith_core.js';document.head.appendChild(s);}" +
+            "if(!document.getElementById('monolith-voice-runtime-js')){var v=document.createElement('script');v.id='monolith-voice-runtime-js';v.src='file:///android_asset/monolith_voice_runtime_patch.js';document.head.appendChild(v);}" +
+            "else if(window.MonolithVoiceRuntimePatch&&window.MonolithVoiceRuntimePatch.apply){window.MonolithVoiceRuntimePatch.apply();}" +
+            "if(window.MonolithCore&&window.MonolithCore.refresh){window.MonolithCore.refresh();}})();";'''
+    if activity_anchor not in activity_text:
+        raise SystemExit("Could not locate Monolith WebView asset injection.")
+    activity_text = activity_text.replace(activity_anchor, activity_block, 1)
+activity.write_text(activity_text, encoding="utf-8")
+
+print("Monolith rebrand, adaptive RAG, media Archives, local Piper speech, and Voice Module integration applied.")
