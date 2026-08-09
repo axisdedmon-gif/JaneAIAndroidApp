@@ -23,7 +23,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 200001
-        versionName = "Beta 1.0.01"
+        versionName = "Beta 2.0.01"
     }
 
     buildTypes {
@@ -38,4 +38,5 @@ dependencies {
     implementation("com.google.mediapipe:tasks-genai:0.10.27")
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation(files("libs/sherpa-onnx-1.13.4.aar"))
 }
