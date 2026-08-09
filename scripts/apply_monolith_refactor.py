@@ -67,6 +67,142 @@ engine.write_text(text, encoding="utf-8")
 # Extend the preserved Archives ingestion path to local audio/video transcription.
 main = legacy_sources[0]
 source = main.read_text(encoding="utf-8")
+
+# Android 16 / API 36 startup correctness: Window.getInsetsController() delegates into
+# DecorView internals that are not valid until the decor view is attached. The inherited
+# shell previously called immersive mode before setContentView(), which caused an NPE in
+# PhoneWindow.getInsetsController() on Samsung Android 16. Remove the pre-attach call and
+# make the controller path attachment-aware. This is a lifecycle correction, not a catch.
+early_immersive = '''        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        applyImmersiveMode();
+
+        webView = new WebView(this);'''
+fixed_early_immersive = '''        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+
+        webView = new WebView(this);'''
+if early_immersive in source:
+    source = source.replace(early_immersive, fixed_early_immersive, 1)
+elif "setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);\n\n        webView = new WebView(this);" not in source:
+    raise SystemExit("Could not locate the pre-attach immersive-mode call in MainActivity.")
+
+post_content_immersive = '''        setContentView(webView);
+        applyImmersiveMode();'''
+fixed_post_content_immersive = '''        setContentView(webView);
+        scheduleImmersiveMode();'''
+if post_content_immersive in source:
+    source = source.replace(post_content_immersive, fixed_post_content_immersive, 1)
+elif fixed_post_content_immersive not in source:
+    raise SystemExit("Could not normalize the post-content immersive-mode scheduling.")
+
+resume_immersive = '''    protected void onResume() {
+        super.onResume();
+        applyImmersiveMode();'''
+fixed_resume_immersive = '''    protected void onResume() {
+        super.onResume();
+        scheduleImmersiveMode();'''
+if resume_immersive in source:
+    source = source.replace(resume_immersive, fixed_resume_immersive, 1)
+elif fixed_resume_immersive not in source:
+    raise SystemExit("Could not normalize onResume immersive-mode scheduling.")
+
+old_immersive_method = '''    private void applyImmersiveMode() {
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams params = getWindow().getAttributes();
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(params);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            );
+        }
+    }
+'''
+new_immersive_method = '''    private void scheduleImmersiveMode() {
+        final android.view.Window window = getWindow();
+        if (window == null) return;
+        final View decorView = window.getDecorView();
+        if (decorView == null) return;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !decorView.isAttachedToWindow()) {
+            decorView.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+                @Override
+                public void onViewAttachedToWindow(View view) {
+                    view.removeOnAttachStateChangeListener(this);
+                    view.post(MainActivity.this::applyImmersiveMode);
+                }
+
+                @Override
+                public void onViewDetachedFromWindow(View view) {
+                    // No action. A later resume/focus event will schedule immersive mode again.
+                }
+            });
+            return;
+        }
+
+        decorView.post(this::applyImmersiveMode);
+    }
+
+    private void applyImmersiveMode() {
+        final android.view.Window window = getWindow();
+        if (window == null) return;
+        final View decorView = window.getDecorView();
+        if (decorView == null) return;
+
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            window.setAttributes(params);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setStatusBarContrastEnforced(false);
+            window.setNavigationBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false);
+            if (!decorView.isAttachedToWindow()) return;
+            WindowInsetsController controller = decorView.getWindowInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            );
+        }
+    }
+'''
+if old_immersive_method in source:
+    source = source.replace(old_immersive_method, new_immersive_method, 1)
+elif "private void scheduleImmersiveMode()" not in source or "decorView.getWindowInsetsController()" not in source:
+    raise SystemExit("Could not replace MainActivity immersive-mode lifecycle implementation.")
+
 if '"audio/*"' not in source:
     source = source.replace(
         '            "image/*",\n            "text/*",',
@@ -164,4 +300,4 @@ if "monolith-voice-runtime-js" not in activity_text:
     activity_text = activity_text.replace(activity_anchor, activity_block, 1)
 activity.write_text(activity_text, encoding="utf-8")
 
-print("Monolith package migration, adaptive RAG, media Archives, local Piper speech, and Voice Module integration applied.")
+print("Monolith package migration, Android 16 lifecycle hardening, adaptive RAG, media Archives, local Piper speech, and Voice Module integration applied.")
