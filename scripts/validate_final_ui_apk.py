@@ -44,15 +44,21 @@ with zipfile.ZipFile(apk) as archive:
 
     runtime = archive.read("assets/monolith_scene_runtime.js").decode("utf-8", errors="replace")
     for token in (
-        "MONOLITH-SCENE-3",
+        "MONOLITH-SCENE-4",
         "monolith-launch",
         "House Dedmon Access",
         "house_dedmon_crest.webp",
         "monolithEnterButton",
         "__monolithExclusiveRouter",
+        'document.documentElement.classList.remove("monolith-scene-initializing");',
+        ".monolith-launch-scene .dedmon-launch-shell",
+        'dataset.monolithLoadState = "loaded"',
     ):
         if token not in runtime:
-            raise SystemExit(f"Packaged scene runtime is missing dedicated launch token: {token}")
+            raise SystemExit(f"Packaged scene runtime is missing visible-launch token: {token}")
+    raf_deadlock = '''requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'''
+    if raf_deadlock in runtime:
+        raise SystemExit("Packaged scene runtime still gates launch visibility on requestAnimationFrame.")
 
     landscape = archive.read("assets/monolith_landscape_gen2.css").decode("utf-8", errors="replace")
     for token in (
@@ -65,15 +71,16 @@ with zipfile.ZipFile(apk) as archive:
         if token not in landscape:
             raise SystemExit(f"Generation-2 landscape geometry is missing from packaged CSS: {token}")
 
-    # Validate compiled Java/Kotlin string pools too. This closes the gap that allowed a scene
-    # runtime to be packaged but never referenced by the Android host in the previous build.
     dex_names = sorted(name for name in names if name.endswith(".dex"))
     if not dex_names:
         raise SystemExit("Packaged APK contains no DEX bytecode.")
     dex_blob = b"\n".join(archive.read(name) for name in dex_names)
     for token in (
         b"monolith_scene_runtime.js",
-        b"exclusive scene did not mount",
+        b"visibly painted",
+        b"HOUSE DEDMON ACCESS // VERIFYING VISIBILITY",
+        b"elementFromPoint",
+        b"hitInLaunch",
         b"MonolithSafeBaseActivity",
         b"NATIVE RECOVERY CONSOLE // NO WEBVIEW",
         b"disabled-safe-native",
@@ -83,6 +90,7 @@ with zipfile.ZipFile(apk) as archive:
             raise SystemExit(f"Compiled APK is missing runtime-host recovery token: {token.decode('utf-8')}")
 
 print(
-    f"Packaged Monolith runtime validated inside {apk.name}: Android scene-loader references are "
-    "compiled, House Dedmon owns a dedicated landscape scene, and Safe Base is native/WebView-disabled."
+    f"Packaged Monolith runtime validated inside {apk.name}: scene generation 4 releases startup "
+    "visibility synchronously, Android compiled bytecode requires geometry/foreground paint evidence, "
+    "and Safe Base remains native/WebView-disabled."
 )
