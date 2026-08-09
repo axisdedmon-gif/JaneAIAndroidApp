@@ -8,6 +8,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.function.BiConsumer
 
 /**
  * Lifecycle-owned background execution for Monolith feature modules.
@@ -17,13 +18,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  * instead of escaping a coroutine and terminating the process.
  */
 class MonolithCoroutineScope(
-    private val onFailure: (String, Throwable) -> Unit
+    private val onFailure: BiConsumer<String, Throwable>
 ) {
     private val closed = AtomicBoolean(false)
     private val supervisor = SupervisorJob()
     private val exceptionHandler = CoroutineExceptionHandler { context, throwable ->
         val name = context[CoroutineName]?.name ?: "MonolithCoroutine"
-        onFailure(name, throwable)
+        onFailure.accept(name, throwable)
     }
     private val scope = CoroutineScope(supervisor + Dispatchers.Main.immediate + exceptionHandler)
 
