@@ -3,9 +3,6 @@ run-name: "Monolith AI Beta 2.0.01"
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 permissions:
   contents: read
