@@ -19,14 +19,14 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       # MediaPipe GenAI 0.10.27 in this repository contains Java 21 class files.
-      # The Android output bytecode remains pinned to JVM 1.8 in app/build.gradle.
+      # Android output bytecode remains JVM 1.8 as configured in app/build.gradle.
       - name: Set up Java JDK Environment
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: "21"
@@ -43,20 +43,27 @@ jobs:
         run: bash scripts/calculate_monolith_version.sh
 
       - name: Inject Generated Version Into Android and BIOS Surfaces
-        env:
-          VERSION_NAME: ${{ env.VERSION_NAME }}
-          VERSION_CODE: ${{ env.VERSION_CODE }}
         run: python3 scripts/inject_monolith_ci_version.py
 
       - name: Validate Exclusive Scene Architecture
         run: |
           python3 scripts/strip_legacy_scene_overlays.py
+          python3 scripts/validate_final_ui.py
+          python3 -m py_compile \
+            scripts/calculate_monolith_version.sh 2>/dev/null || true
+          node --check app/src/main/assets/jane_command_deck.js
+          node --check app/src/main/assets/jane_qol_runtime.js
+          node --check app/src/main/assets/monolith_core.js
           node --check app/src/main/assets/monolith_scene_runtime.js
           node --check app/src/main/assets/monolith_voice_runtime_patch.js
-          grep -q 'jane_command_deck.js' app/src/main/assets/monolith_scene_runtime.js
-          grep -q 'monolith-model' app/src/main/assets/monolith_scene_runtime.js
-          grep -q 'monolith-voice' app/src/main/assets/monolith_scene_runtime.js
-          grep -q 'monolith-rpg' app/src/main/assets/monolith_scene_runtime.js
+          node --check app/src/main/assets/monolith_final_ui.js
+          grep -q 'MONOLITH-SCENE-2' app/src/main/assets/monolith_scene_runtime.js
+          grep -q '__monolithExclusiveRouter' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'MONOLITH-CORE-2' app/src/main/assets/monolith_core.js
+          if grep -q 'ensureOverlay\|state\.overlay' app/src/main/assets/monolith_core.js; then
+            echo 'Deprecated module overlay architecture survived in monolith_core.js.' >&2
+            exit 1
+          fi
           if grep -q 'House Dedmon Access' app/src/main/assets/index.html; then
             echo 'Legacy House Dedmon full-screen overlay survived scene cleanup.' >&2
             exit 1
@@ -65,14 +72,18 @@ jobs:
             echo 'Fake biometric telemetry survived scene cleanup.' >&2
             exit 1
           fi
+          grep -q 'android:name="ai.monolith.app.MonolithBootstrapActivity"' app/src/main/AndroidManifest.xml
+          grep -q 'android:screenOrientation="sensorLandscape"' app/src/main/AndroidManifest.xml
           grep -q 'MONOLITH AI RUNTIME DIAGNOSTIC' app/src/main/java/ai/monolith/app/MonolithApplication.java
           grep -q 'DETERMINISTIC STARTUP BOUNDARY' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+          grep -q 'scifi_hardware_frame' <(find app/src/main/res/drawable -maxdepth 1 -type f -printf '%f\n')
+          grep -q 'scifi_reactor_button' <(find app/src/main/res/drawable -maxdepth 1 -type f -printf '%f\n')
 
       - name: Compile, Sign, Validate, and Package APK
-        env:
-          VERSION_NAME: ${{ env.VERSION_NAME }}
-          VERSION_CODE: ${{ env.VERSION_CODE }}
         run: bash scripts/build_monolith_apk.sh
+
+      - name: Validate Final UI Inside APK
+        run: python3 scripts/validate_final_ui_apk.py
 
       - name: Publish Build Identity
         run: |
@@ -84,6 +95,8 @@ jobs:
             echo "- Monolith generation: \`${MONOLITH_GEN}\`"
             echo "- UI generation: \`${UI_GEN}\`"
             echo "- patch: \`${PATCH_GEN}\`"
+            echo '- layout: `exclusive landscape scenes`'
+            echo '- visual system: `cybernetic hard-sci-fi`'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Archive Installable APK Build Package
