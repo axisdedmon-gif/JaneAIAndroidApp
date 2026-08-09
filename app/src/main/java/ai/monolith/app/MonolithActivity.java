@@ -16,6 +16,7 @@ import com.example.janeai.HudMainActivity;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,14 +29,17 @@ import ai.monolith.app.runtime.MonolithCoroutineScope;
 /**
  * Monolith AI application shell. Jane is a character hosted by this application.
  *
- * Startup deliberately keeps optional permissions, Piper inspection, and module work outside the
- * critical Activity launch path. The inherited proven UI host remains available even if an
- * optional Monolith module reports a runtime failure.
+ * The inherited legacy host still owns the durable WebView/RAG/voice infrastructure, but Monolith
+ * now owns the scene bootstrap contract explicitly. The Android host injects the exclusive scene
+ * runtime first, then the Monolith module runtime, then the voice patch. A launch is never marked
+ * stable until the WebView proves that exactly one Monolith scene is mounted and visible.
  */
 public class MonolithActivity extends HudMainActivity {
     private static final int PICK_VOICE_ASSETS = 8802;
     private static final int EXPORT_VOICE_DATASET = 8803;
-    private static final long STABLE_CHECKPOINT_MS = 5000L;
+    private static final long FIRST_SCENE_VERIFY_MS = 3000L;
+    private static final long RETRY_SCENE_VERIFY_MS = 900L;
+    private static final int MAX_SCENE_VERIFY_ATTEMPTS = 3;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private VoiceModelStore voiceStore;
@@ -44,6 +48,8 @@ public class MonolithActivity extends HudMainActivity {
     private String pendingMode = "home";
     private File pendingVoiceExport;
     private boolean safeMode;
+    private boolean sceneMounted;
+    private int sceneVerifyAttempts;
 
     /**
      * Captures the inherited Activity content host through Android's normal setContentView contract.
@@ -61,7 +67,7 @@ public class MonolithActivity extends HudMainActivity {
         MonolithCrashGuard.install(this);
         safeMode = MonolithCrashGuard.beginLaunch(this);
 
-        // The proven legacy core owns the base WebView and must initialize first.
+        // The legacy core owns the durable WebView and native bridges and must initialize first.
         super.onCreate(savedInstanceState);
 
         try {
@@ -74,21 +80,19 @@ public class MonolithActivity extends HudMainActivity {
                 ));
             });
             pendingMode = readMode(getIntent());
-            if (monolithWebView != null) {
-                monolithWebView.addJavascriptInterface(new MonolithBridge(), "AndroidMonolith");
+            if (monolithWebView == null) {
+                throw new IllegalStateException("Monolith core WebView host was not captured by setContentView().");
             }
+            monolithWebView.addJavascriptInterface(new MonolithBridge(), "AndroidMonolith");
 
-            // Permissions are user-triggered through the bridge. Never launch a permission storm
-            // from Activity.onCreate(), especially before Android has granted the assistant role.
+            // Even a crash-loop/safe launch must mount the Monolith scene router. Safe mode only
+            // defers optional subsystems; it must never fall back to an invisible/legacy root UI.
             if (safeMode) injectSafeModeIdentity();
-            else scheduleInjection();
+            scheduleInjection();
+            handler.postDelayed(this::verifySceneMount, FIRST_SCENE_VERIFY_MS);
         } catch (Throwable error) {
-            safeMode = true;
-            MonolithCrashGuard.recordStartupFailure(this, error);
-            injectSafeModeIdentity();
+            failCoreMount("native startup initialization failed", error);
         }
-
-        handler.postDelayed(() -> MonolithCrashGuard.markStable(MonolithActivity.this), STABLE_CHECKPOINT_MS);
     }
 
     @Override
@@ -96,14 +100,16 @@ public class MonolithActivity extends HudMainActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         pendingMode = readMode(intent);
-        if (!safeMode) scheduleInjection();
+        scheduleInjection();
+        if (!sceneMounted) handler.postDelayed(this::verifySceneMount, 500L);
         handler.postDelayed(() -> notifyMode(pendingMode), 400L);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (!safeMode) scheduleInjection();
+        scheduleInjection();
+        if (!sceneMounted) handler.postDelayed(this::verifySceneMount, 650L);
         handler.postDelayed(() -> notifyMode(pendingMode), 300L);
     }
 
@@ -130,10 +136,21 @@ public class MonolithActivity extends HudMainActivity {
         return legacy == null || legacy.trim().isEmpty() ? "home" : legacy;
     }
 
+    private String installedVersionName() {
+        try {
+            android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            String value = info.versionName;
+            return value == null || value.trim().isEmpty() ? "unknown" : value;
+        } catch (Throwable ignored) {
+            return "unknown";
+        }
+    }
+
     private void scheduleInjection() {
-        handler.postDelayed(this::injectMonolithLayer, 260L);
-        handler.postDelayed(this::injectMonolithLayer, 900L);
-        handler.postDelayed(this::injectMonolithLayer, 1800L);
+        handler.postDelayed(this::injectMonolithLayer, 80L);
+        handler.postDelayed(this::injectMonolithLayer, 420L);
+        handler.postDelayed(this::injectMonolithLayer, 1050L);
+        handler.postDelayed(this::injectMonolithLayer, 1900L);
     }
 
     private void injectSafeModeIdentity() {
@@ -141,35 +158,137 @@ public class MonolithActivity extends HudMainActivity {
         handler.postDelayed(() -> {
             if (monolithWebView == null) return;
             monolithWebView.evaluateJavascript(
-                "(function(){document.title='Monolith AI';" +
-                "var a=document.querySelector('.deck-identity strong');if(a)a.textContent='Monolith AI';" +
-                "var b=document.querySelector('.deck-identity span');if(b)b.textContent='SAFE STARTUP // OPTIONAL MODULES DEFERRED';" +
+                "(function(){window.__MONOLITH_SAFE_START=true;document.title='Monolith AI';" +
+                "var a=document.querySelector('.deck-identity strong');if(a)a.textContent='MONOLITH AI';" +
+                "var b=document.querySelector('.deck-identity span');if(b)b.textContent='SAFE START // OPTIONAL MODULES DEFERRED';" +
                 "})();",
                 null
             );
         }, 350L);
     }
 
+    /**
+     * Loads the scene architecture in dependency order. The previous implementation injected only
+     * monolith_core.js and the voice patch, leaving monolith_scene_runtime.js packaged but unused.
+     */
     private void injectMonolithLayer() {
-        if (safeMode || monolithWebView == null) return;
-        final String script = "(function(){if(!document||!document.head)return;" +
-            "if(!document.getElementById('monolith-core-css')){var l=document.createElement('link');l.id='monolith-core-css';l.rel='stylesheet';l.href='file:///android_asset/monolith_core.css';document.head.appendChild(l);}" +
-            "if(!document.getElementById('monolith-core-js')){var s=document.createElement('script');s.id='monolith-core-js';s.src='file:///android_asset/monolith_core.js';document.head.appendChild(s);}" +
-            "if(!document.getElementById('monolith-voice-runtime-js')){var v=document.createElement('script');v.id='monolith-voice-runtime-js';v.src='file:///android_asset/monolith_voice_runtime_patch.js';document.head.appendChild(v);}" +
-            "else if(window.MonolithVoiceRuntimePatch&&window.MonolithVoiceRuntimePatch.apply){window.MonolithVoiceRuntimePatch.apply();}" +
-            "if(window.MonolithCore&&window.MonolithCore.refresh){window.MonolithCore.refresh();}})();";
+        if (monolithWebView == null || isFinishing()) return;
+        final String script =
+            "(function(){" +
+            "if(!document||!document.head)return 'NO_DOCUMENT_HEAD';" +
+            "function css(id,href){if(document.getElementById(id))return;var l=document.createElement('link');l.id=id;l.rel='stylesheet';l.href=href;document.head.appendChild(l);}" +
+            "function load(id,src,ready,next){" +
+                "var old=document.getElementById(id);" +
+                "if(old){if(ready()){if(next)next();}else if(next){old.addEventListener('load',next,{once:true});}return;}" +
+                "var s=document.createElement('script');s.id=id;s.src=src;s.async=false;" +
+                "s.addEventListener('load',function(){s.dataset.loaded='true';if(next)next();},{once:true});" +
+                "s.addEventListener('error',function(){document.documentElement.dataset.monolithLoadError=id;},{once:true});" +
+                "document.head.appendChild(s);" +
+            "}" +
+            "css('monolith-core-css','file:///android_asset/monolith_core.css');" +
+            "load('monolith-scene-runtime-js','file:///android_asset/monolith_scene_runtime.js',function(){return !!window.MonolithSceneRuntime;},function(){" +
+                "load('monolith-core-js','file:///android_asset/monolith_core.js',function(){return !!window.MonolithCore;},function(){" +
+                    "load('monolith-voice-runtime-js','file:///android_asset/monolith_voice_runtime_patch.js',function(){return !!window.MonolithVoiceRuntimePatch;},function(){" +
+                        "if(window.MonolithVoiceRuntimePatch&&window.MonolithVoiceRuntimePatch.apply)window.MonolithVoiceRuntimePatch.apply();" +
+                        "if(window.MonolithCore&&window.MonolithCore.refresh)window.MonolithCore.refresh();" +
+                        "if(window.MonolithSceneRuntime&&window.MonolithSceneRuntime.refresh)window.MonolithSceneRuntime.refresh();" +
+                    "});" +
+                "});" +
+            "});" +
+            "return 'MONOLITH_INJECTION_SCHEDULED';" +
+            "})();";
         try {
             monolithWebView.evaluateJavascript(script, null);
-            notifyMode(pendingMode);
         } catch (RuntimeException error) {
-            MonolithCrashGuard.recordStartupFailure(this, error);
-            safeMode = true;
-            injectSafeModeIdentity();
+            failCoreMount("WebView scene injection threw on the Android host", error);
         }
     }
 
+    private void verifySceneMount() {
+        if (sceneMounted || monolithWebView == null || isFinishing()) return;
+        sceneVerifyAttempts++;
+        final String probe =
+            "(function(){" +
+            "var host=document.getElementById('janeSceneHost');" +
+            "var active=host&&host.querySelector(':scope > [data-jane-scene][data-jane-active=\"true\"]');" +
+            "var launch=host&&host.querySelector(':scope > [data-jane-scene=\"monolith-launch\"]');" +
+            "return JSON.stringify({" +
+                "ready:!!(window.MonolithSceneRuntime&&window.JaneSceneRouter&&host&&active)," +
+                "sceneRuntime:!!window.MonolithSceneRuntime," +
+                "router:!!window.JaneSceneRouter," +
+                "host:!!host," +
+                "launch:!!launch," +
+                "active:active?active.getAttribute('data-jane-scene'):''," +
+                "loadError:document.documentElement.dataset.monolithLoadError||''," +
+                "bodyScene:document.body&&document.body.dataset?document.body.dataset.janeScene||'':''" +
+            "});" +
+            "})();";
+
+        try {
+            monolithWebView.evaluateJavascript(probe, value -> {
+                if (sceneMounted || isFinishing()) return;
+                JSONObject status = decodeJavascriptObject(value);
+                if (status != null && status.optBoolean("ready", false)) {
+                    sceneMounted = true;
+                    revealCoreSurface();
+                    MonolithCrashGuard.markStable(MonolithActivity.this);
+                    notifyMode(pendingMode);
+                    return;
+                }
+
+                if (sceneVerifyAttempts < MAX_SCENE_VERIFY_ATTEMPTS) {
+                    injectMonolithLayer();
+                    handler.postDelayed(this::verifySceneMount, RETRY_SCENE_VERIFY_MS);
+                    return;
+                }
+
+                String detail = status == null ? String.valueOf(value) : status.toString();
+                failCoreMount(
+                    "exclusive scene did not mount after " + sceneVerifyAttempts + " probes; state=" + detail,
+                    null
+                );
+            });
+        } catch (RuntimeException error) {
+            failCoreMount("scene-mount verification could not execute", error);
+        }
+    }
+
+    private JSONObject decodeJavascriptObject(String value) {
+        if (value == null || "null".equals(value)) return null;
+        try {
+            Object decoded = new JSONTokener(value).nextValue();
+            String json = decoded instanceof String ? (String) decoded : String.valueOf(decoded);
+            return new JSONObject(json);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private void revealCoreSurface() {
+        if (monolithWebView == null) return;
+        monolithWebView.setVisibility(View.VISIBLE);
+        monolithWebView.animate().cancel();
+        monolithWebView.setAlpha(0f);
+        monolithWebView.animate().alpha(1f).setDuration(140L).start();
+    }
+
+    /**
+     * Startup mount failures are fail-fast by design. Throwing on the main thread routes the exact
+     * state payload through MonolithApplication's persisted BIOS diagnostic instead of leaving a
+     * stable-looking black screen that later gets incorrectly marked as healthy.
+     */
+    private void failCoreMount(String message, Throwable cause) {
+        if (isFinishing()) return;
+        String detail = message == null ? "Monolith Core scene mount failed." : message;
+        IllegalStateException failure = cause == null
+            ? new IllegalStateException(detail)
+            : new IllegalStateException(detail, cause);
+        MonolithCrashGuard.recordStartupFailure(this, failure);
+        handler.post(() -> { throw failure; });
+    }
+
     private void notifyMode(String mode) {
-        if (monolithWebView == null || safeMode) return;
+        if (monolithWebView == null || !sceneMounted) return;
         String safe = (mode == null ? "home" : mode).replace("\\", "\\\\").replace("'", "\\'");
         try {
             monolithWebView.evaluateJavascript(
@@ -362,7 +481,7 @@ public class MonolithActivity extends HudMainActivity {
             try {
                 JSONObject out = new JSONObject();
                 out.put("application", "Monolith AI");
-                out.put("version", "Beta 2.0.02");
+                out.put("version", installedVersionName());
                 out.put("characters", new JSONObject(CharacterRegistry.stateJson(MonolithActivity.this)));
                 out.put("permissions", new JSONObject(PermissionCoordinator.stateJson(MonolithActivity.this)));
                 out.put("voice", bootstrapVoiceState());
@@ -370,10 +489,11 @@ public class MonolithActivity extends HudMainActivity {
                 out.put("accessibility", new JSONObject(MonolithAccessibilityService.snapshotJson()));
                 out.put("startup", new JSONObject(MonolithCrashGuard.diagnosticJson(MonolithActivity.this)));
                 out.put("safeMode", safeMode);
+                out.put("sceneMounted", sceneMounted);
                 out.put("launchMode", pendingMode);
                 return out.toString();
             } catch (Throwable error) {
-                return "{\"application\":\"Monolith AI\",\"version\":\"Beta 2.0.02\",\"safeMode\":true}";
+                return "{\"application\":\"Monolith AI\",\"version\":\"unknown\",\"safeMode\":true}";
             }
         }
 
