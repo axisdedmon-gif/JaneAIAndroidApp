@@ -31,6 +31,7 @@
     </queries>
 
     <application
+        android:name="ai.monolith.app.MonolithApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -44,17 +45,33 @@
         <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
 
         <activity
-            android:name="ai.monolith.app.MonolithActivity"
+            android:name="ai.monolith.app.MonolithBootstrapActivity"
             android:exported="true"
-            android:screenOrientation="sensorLandscape"
-            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation">
+            android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                <action android:name="android.intent.action.ASSIST" />
-                <action android:name="android.intent.action.VOICE_COMMAND" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="ai.monolith.app.MonolithActivity"
+            android:exported="true"
+            android:process=":core"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="ai.monolith.app.legacy.HudMainActivity"
+            android:exported="false"
+            android:process=":safe"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|navigation" />
 
         <service
             android:name="ai.monolith.app.assistant.MonolithVoiceInteractionService"
