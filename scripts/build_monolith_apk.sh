@@ -21,8 +21,8 @@ ESPEAK_ASSET_DIR="$TTS_ASSET_ROOT/espeak-ng-data"
 
 EXPECTED_APP_ID="ai.monolith.app"
 EXPECTED_CERT_SHA256="a1e4ab83fa08381ff109f0cdfb33ade18e9300b73b98b2ee0e8e42133a7879c6"
-BETA_VERSION="2.0.01"
-EXPECTED_VERSION_CODE="200001"
+BETA_VERSION="2.0.02"
+EXPECTED_VERSION_CODE="200002"
 EXPECTED_VERSION_NAME="Beta ${BETA_VERSION}"
 DIST_DIR="$ROOT/dist"
 FINAL_APK="$DIST_DIR/MonolithAI-Beta-${BETA_VERSION}.apk"
@@ -44,13 +44,25 @@ python3 scripts/apply_monolith_refactor.py
 # Fast source validation before any large model transfer.
 grep -q 'applicationId = "ai.monolith.app"' app/build.gradle
 grep -q 'namespace = "ai.monolith.app"' app/build.gradle
-grep -q 'versionName = "Beta 2.0.01"' app/build.gradle
+grep -q 'versionName = "Beta 2.0.02"' app/build.gradle
+grep -q 'versionCode = 200002' app/build.gradle
+grep -q 'org.jetbrains.kotlin.android' app/build.gradle
+grep -q 'kotlinx-coroutines-android:1.11.0' app/build.gradle
 grep -q 'sherpa-onnx-1.13.4.aar' app/build.gradle
 grep -q '<string name="app_name">Monolith AI</string>' app/src/main/res/values/strings.xml
 grep -q 'android.service.voice.VoiceInteractionService' app/src/main/AndroidManifest.xml
 grep -q 'BIND_VOICE_INTERACTION' app/src/main/AndroidManifest.xml
 grep -q 'MonolithAccessibilityService' app/src/main/AndroidManifest.xml
 grep -q 'MonolithSearchWidgetProvider' app/src/main/AndroidManifest.xml
+grep -q 'MonolithCrashGuard.beginLaunch' app/src/main/java/ai/monolith/app/MonolithActivity.java
+grep -q 'MonolithCoroutineScope' app/src/main/java/ai/monolith/app/MonolithActivity.java
+grep -q 'deferred-until-voice-module' app/src/main/java/ai/monolith/app/MonolithActivity.java
+grep -q 'requestAssistantRestrictedPermissions' app/src/main/java/ai/monolith/app/PermissionCoordinator.java
+grep -q 'RoleManager.ROLE_ASSISTANT' app/src/main/java/ai/monolith/app/PermissionCoordinator.java
+if grep -q 'PermissionCoordinator.requestRuntimePermissions(this);' app/src/main/java/ai/monolith/app/MonolithActivity.java; then
+  echo 'Unsafe automatic permission request remains in MonolithActivity.onCreate().' >&2
+  exit 1
+fi
 grep -q 'getExternalFilesDir("monolith_voice")' app/src/main/java/ai/monolith/app/VoiceModelStore.java
 grep -q 'exportDataset' app/src/main/java/ai/monolith/app/VoiceModelStore.java
 grep -q 'PiperTtsEngine.speakAsync' app/src/main/java/com/example/janeai/MainActivity.java
@@ -81,7 +93,6 @@ print('Monolith XML metadata parsed successfully.')
 PYXML
 
 # Pin the Android-local TTS runtime without committing a large third-party AAR.
-# GitHub release metadata for v1.13.4 publishes this exact size and SHA-256.
 curl --fail --location --retry 4 --retry-all-errors --connect-timeout 30 --max-time 900 "$SHERPA_AAR_URL" --output "$SHERPA_AAR"
 test "$(stat -c%s "$SHERPA_AAR")" = "$SHERPA_AAR_BYTES"
 echo "$SHERPA_AAR_SHA  $SHERPA_AAR" | sha256sum -c -
@@ -93,16 +104,15 @@ tar -xjf "$ESPEAK_ARCHIVE" -C "$TTS_ASSET_ROOT"
 test -d "$ESPEAK_ASSET_DIR"
 test "$(find "$ESPEAK_ASSET_DIR" -type f | wc -l)" -gt 20
 
-# Compile native source before the 500+ MB LLM transfer so Java/JNI API mistakes fail cheaply.
-gradle :app:compileDebugJavaWithJavac --stacktrace
+# Compile Kotlin and Java before the 500+ MB LLM transfer so source/API mistakes fail cheaply.
+gradle :app:compileDebugKotlin :app:compileDebugJavaWithJavac --stacktrace
 
 export MONOLITH_VERSION_CODE="$EXPECTED_VERSION_CODE"
 export MONOLITH_VERSION_NAME="$EXPECTED_VERSION_NAME"
 export MONOLITH_KEYSTORE_PASSWORD="JaneUpdate2026"
 export MONOLITH_KEY_ALIAS="janeupdate"
 
-# Recover the already-established update key from immutable repository history through Git.
-# This avoids dependence on raw.githubusercontent.com and verifies signing before the large model transfer.
+# Recover the established update key from immutable repository history through Git.
 git fetch --no-tags --depth=1 origin "$SIGNING_COMMIT"
 git cat-file -e "$SIGNING_COMMIT:$SIGNING_REPO_PATH"
 git show "$SIGNING_COMMIT:$SIGNING_REPO_PATH" | tr -d '\r\n' | base64 -d > "$SIGNING_FILE"
@@ -150,8 +160,8 @@ app_id = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle_text)
 version_code = re.search(r'versionCode\s*=\s*(\d+)', gradle_text)
 version_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle_text)
 if not app_id or app_id.group(1) != 'ai.monolith.app': raise SystemExit('Monolith applicationId validation failed.')
-if not version_code or version_code.group(1) != '200001': raise SystemExit('Monolith Beta 2.0.01 versionCode validation failed.')
-if not version_name or version_name.group(1) != 'Beta 2.0.01': raise SystemExit('Monolith Beta 2.0.01 version validation failed.')
+if not version_code or version_code.group(1) != '200002': raise SystemExit('Monolith Beta 2.0.02 versionCode validation failed.')
+if not version_name or version_name.group(1) != 'Beta 2.0.02': raise SystemExit('Monolith Beta 2.0.02 version validation failed.')
 if not apk.is_file() or apk.stat().st_size <= expected_size: raise SystemExit('APK missing or too small for bundled offline model.')
 with zipfile.ZipFile(apk) as z:
     names=set(z.namelist()); missing=required-names
@@ -166,9 +176,9 @@ with zipfile.ZipFile(apk) as z:
     with z.open(info) as f:
         for block in iter(lambda:f.read(1024*1024),b''): h.update(block)
     if h.hexdigest()!=expected_sha: raise SystemExit('Offline model SHA-256 mismatch.')
-print('Monolith AI Beta 2.0.01 identity, assistant services, local RAG, Piper runtime, modules, and APK assets validated.')
+print('Monolith AI Beta 2.0.02 startup hardening, identity, assistant services, local RAG, Piper runtime, modules, and APK assets validated.')
 PYAPK
 
 cp app/build/outputs/apk/debug/app-debug.apk "$FINAL_APK"
 test -s "$FINAL_APK"
-echo "Installable Monolith AI Beta 2.0.01 APK: $FINAL_APK"
+echo "Installable Monolith AI Beta 2.0.02 APK: $FINAL_APK"
