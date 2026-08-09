@@ -16,6 +16,9 @@ import com.example.janeai.MainActivity;
 
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 
@@ -27,10 +30,12 @@ import ai.monolith.app.assistant.AssistSnapshotStore;
  */
 public class MonolithActivity extends HudMainActivity {
     private static final int PICK_VOICE_ASSETS = 8802;
+    private static final int EXPORT_VOICE_DATASET = 8803;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private VoiceModelStore voiceStore;
     private WebView monolithWebView;
     private String pendingMode = "home";
+    private File pendingVoiceExport;
 
     @SuppressLint("AddJavascriptInterface")
     @Override
@@ -103,6 +108,19 @@ public class MonolithActivity extends HudMainActivity {
         monolithWebView.evaluateJavascript("window.MonolithReceiveLaunchMode&&window.MonolithReceiveLaunchMode('" + safe + "');", null);
     }
 
+    private String jsString(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n").replace("\r", "\\r");
+    }
+
+    private void notifyVoiceNotice(String message) {
+        if (monolithWebView == null) return;
+        monolithWebView.evaluateJavascript(
+            "window.MonolithVoiceNotice&&window.MonolithVoiceNotice('" + jsString(message) + "');",
+            null
+        );
+    }
+
     private void pickVoiceAssets() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -110,13 +128,57 @@ public class MonolithActivity extends HudMainActivity {
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
             "audio/wav", "audio/x-wav", "audio/*", "application/json",
-            "application/octet-stream", "text/plain", "text/csv"
+            "application/octet-stream", "text/plain", "text/csv", "application/zip"
         });
         startActivityForResult(intent, PICK_VOICE_ASSETS);
     }
 
+    private void beginDatasetExport(String datasetId) {
+        new Thread(() -> {
+            try {
+                File export = voiceStore.exportDataset(datasetId);
+                runOnUiThread(() -> {
+                    pendingVoiceExport = export;
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/zip");
+                    intent.putExtra(Intent.EXTRA_TITLE, export.getName());
+                    startActivityForResult(intent, EXPORT_VOICE_DATASET);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> notifyVoiceNotice("ERROR:" + (error.getMessage() == null ? "Dataset export failed." : error.getMessage())));
+            }
+        }, "MonolithVoiceExportPrepare").start();
+    }
+
+    private void finishDatasetExport(Uri destination) {
+        File source = pendingVoiceExport;
+        pendingVoiceExport = null;
+        if (source == null || !source.isFile() || destination == null) {
+            notifyVoiceNotice("ERROR:Dataset export target was unavailable.");
+            return;
+        }
+        new Thread(() -> {
+            try (FileInputStream in = new FileInputStream(source); OutputStream out = getContentResolver().openOutputStream(destination, "w")) {
+                if (out == null) throw new IllegalStateException("Export destination could not be opened.");
+                byte[] buffer = new byte[16384];
+                int read;
+                while ((read = in.read(buffer)) != -1) out.write(buffer, 0, read);
+                out.flush();
+                runOnUiThread(() -> notifyVoiceNotice("DATASET EXPORT COMPLETE"));
+            } catch (Exception error) {
+                runOnUiThread(() -> notifyVoiceNotice("ERROR:" + (error.getMessage() == null ? "Dataset export failed." : error.getMessage())));
+            }
+        }, "MonolithVoiceExportWrite").start();
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == EXPORT_VOICE_DATASET) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) finishDatasetExport(data.getData());
+            else { pendingVoiceExport = null; notifyVoiceNotice("DATASET EXPORT CANCELLED"); }
+            return;
+        }
         if (requestCode != PICK_VOICE_ASSETS) {
             super.onActivityResult(requestCode, resultCode, data);
             return;
@@ -133,10 +195,19 @@ public class MonolithActivity extends HudMainActivity {
             uris.add(data.getData());
         }
         new Thread(() -> {
+            int imported = 0;
+            String lastError = "";
             for (Uri uri : uris) {
-                try { voiceStore.importAsset(uri); } catch (Exception ignored) {}
+                try { voiceStore.importAsset(uri); imported++; }
+                catch (Exception error) { lastError = error.getMessage() == null ? "Voice asset import failed." : error.getMessage(); }
             }
-            runOnUiThread(this::notifyVoiceWorkspace);
+            final int importedCount = imported;
+            final String errorMessage = lastError;
+            runOnUiThread(() -> {
+                notifyVoiceWorkspace();
+                if (importedCount > 0) notifyVoiceNotice("IMPORTED " + importedCount + " VOICE ASSET" + (importedCount == 1 ? "" : "S"));
+                else if (!errorMessage.isEmpty()) notifyVoiceNotice("ERROR:" + errorMessage);
+            });
         }, "MonolithVoiceImport").start();
     }
 
@@ -152,6 +223,7 @@ public class MonolithActivity extends HudMainActivity {
             try {
                 JSONObject out = new JSONObject();
                 out.put("application", "Monolith AI");
+                out.put("version", "Beta 2.0.01");
                 out.put("characters", new JSONObject(CharacterRegistry.stateJson(MonolithActivity.this)));
                 out.put("permissions", new JSONObject(PermissionCoordinator.stateJson(MonolithActivity.this)));
                 out.put("voice", new JSONObject(voiceStore.stateJson()));
@@ -160,7 +232,7 @@ public class MonolithActivity extends HudMainActivity {
                 out.put("launchMode", pendingMode);
                 return out.toString();
             } catch (Exception error) {
-                return "{\"application\":\"Monolith AI\"}";
+                return "{\"application\":\"Monolith AI\",\"version\":\"Beta 2.0.01\"}";
             }
         }
 
@@ -227,6 +299,9 @@ public class MonolithActivity extends HudMainActivity {
 
         @JavascriptInterface
         public void pickVoiceAssets() { runOnUiThread(MonolithActivity.this::pickVoiceAssets); }
+
+        @JavascriptInterface
+        public void exportVoiceDataset(String datasetId) { runOnUiThread(() -> beginDatasetExport(datasetId)); }
 
         @JavascriptInterface
         public boolean setActiveVoiceModel(String id) {
