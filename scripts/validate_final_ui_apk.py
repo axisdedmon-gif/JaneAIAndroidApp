@@ -65,7 +65,24 @@ with zipfile.ZipFile(apk) as archive:
         if token not in landscape:
             raise SystemExit(f"Generation-2 landscape geometry is missing from packaged CSS: {token}")
 
+    # Validate compiled Java/Kotlin string pools too. This closes the gap that allowed a scene
+    # runtime to be packaged but never referenced by the Android host in the previous build.
+    dex_names = sorted(name for name in names if name.endswith(".dex"))
+    if not dex_names:
+        raise SystemExit("Packaged APK contains no DEX bytecode.")
+    dex_blob = b"\n".join(archive.read(name) for name in dex_names)
+    for token in (
+        b"monolith_scene_runtime.js",
+        b"exclusive scene did not mount",
+        b"MonolithSafeBaseActivity",
+        b"NATIVE RECOVERY CONSOLE // NO WEBVIEW",
+        b"disabled-safe-native",
+        b"clearStartupState",
+    ):
+        if token not in dex_blob:
+            raise SystemExit(f"Compiled APK is missing runtime-host recovery token: {token.decode('utf-8')}")
+
 print(
-    f"Packaged final UI validated inside {apk.name}: dedicated House Dedmon launch scene, "
-    "exclusive landscape scenes, and generation-2 cybernetic geometry are present."
+    f"Packaged Monolith runtime validated inside {apk.name}: Android scene-loader references are "
+    "compiled, House Dedmon owns a dedicated landscape scene, and Safe Base is native/WebView-disabled."
 )
