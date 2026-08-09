@@ -77,7 +77,10 @@ with zipfile.ZipFile(apk) as archive:
     dex_blob = b"\n".join(archive.read(name) for name in dex_names)
     for token in (
         b"monolith_scene_runtime.js",
-        b"exclusive scene did not mount",
+        b"visibly painted",
+        b"HOUSE DEDMON ACCESS // VERIFYING VISIBILITY",
+        b"elementFromPoint",
+        b"hitInLaunch",
         b"MonolithSafeBaseActivity",
         b"NATIVE RECOVERY CONSOLE // NO WEBVIEW",
         b"disabled-safe-native",
@@ -88,6 +91,6 @@ with zipfile.ZipFile(apk) as archive:
 
 print(
     f"Packaged Monolith runtime validated inside {apk.name}: scene generation 4 releases startup "
-    "visibility synchronously with critical launch CSS, Android loader references are compiled, "
+    "visibility synchronously, Android compiled bytecode requires geometry/foreground paint evidence, "
     "and Safe Base remains native/WebView-disabled."
 )
