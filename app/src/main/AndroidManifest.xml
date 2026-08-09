@@ -59,7 +59,6 @@
         <service
             android:name="ai.monolith.app.assistant.MonolithVoiceInteractionService"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
-            android:process=":interactor"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.service.voice.VoiceInteractionService" />
@@ -72,7 +71,6 @@
         <service
             android:name="ai.monolith.app.assistant.MonolithVoiceSessionService"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
-            android:process=":session"
             android:exported="true" />
 
         <service
