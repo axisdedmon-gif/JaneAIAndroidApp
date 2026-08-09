@@ -19,10 +19,21 @@ ESPEAK_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/e
 TTS_ASSET_ROOT="$ROOT/app/src/main/assets/monolith_tts"
 ESPEAK_ASSET_DIR="$TTS_ASSET_ROOT/espeak-ng-data"
 
+ICON_PREFIX_DIR="$ROOT/app/src/main/assets/branding/launcher_prefix"
+ICON_TAIL="$ROOT/app/src/main/assets/branding/monolith_launcher_focus.webp.b64"
+ICON_MIDDLE="$ROOT/app/src/main/assets/branding/launcher_chunks/01.b64"
+ICON_B64_TEMP="$ROOT/.monolith-launcher-focus.b64"
+ICON_RESOURCE_DIR="$ROOT/app/src/main/res/drawable-nodpi"
+ICON_RESOURCE="$ICON_RESOURCE_DIR/monolith_launcher_focus.webp"
+ICON_B64_BYTES="31560"
+ICON_B64_SHA="87ceabb5b57a1442112b0fc8b4f3897a18fe623ccf205d84b78accb9516455de"
+ICON_BYTES="23668"
+ICON_SHA="f733bd52446d87b8c059357f573616da5d5b918188bc4c1079b17f55b7351bf5"
+
 EXPECTED_APP_ID="ai.monolith.app"
 EXPECTED_CERT_SHA256="a1e4ab83fa08381ff109f0cdfb33ade18e9300b73b98b2ee0e8e42133a7879c6"
-BETA_VERSION="2.0.03"
-EXPECTED_VERSION_CODE="200003"
+BETA_VERSION="2.0.04"
+EXPECTED_VERSION_CODE="200004"
 EXPECTED_VERSION_NAME="Beta ${BETA_VERSION}"
 DIST_DIR="$ROOT/dist"
 FINAL_APK="$DIST_DIR/MonolithAI-Beta-${BETA_VERSION}.apk"
@@ -30,28 +41,53 @@ SIGNING_FILE="$ROOT/app/monolith-update-key.jks"
 SIGNING_COMMIT="fbad016ea0d1ceaee341d39d6969484568f8e1dd"
 SIGNING_REPO_PATH="signing/jane-update-key.b64"
 
-mkdir -p "$MODEL_DIR" "$DIST_DIR" "$SHERPA_DIR" "$TTS_ASSET_ROOT"
-rm -f "$MODEL_FILE" "$FINAL_APK" "$SIGNING_FILE" "$SHERPA_AAR" "$ESPEAK_ARCHIVE"
+mkdir -p "$MODEL_DIR" "$DIST_DIR" "$SHERPA_DIR" "$TTS_ASSET_ROOT" "$ICON_RESOURCE_DIR"
+rm -f "$MODEL_FILE" "$FINAL_APK" "$SIGNING_FILE" "$SHERPA_AAR" "$ESPEAK_ARCHIVE" "$ICON_B64_TEMP" "$ICON_RESOURCE"
 rm -rf "$ESPEAK_ASSET_DIR"
 cleanup(){
-  rm -f "$SIGNING_FILE" "$MODEL_FILE" "$SHERPA_AAR" "$ESPEAK_ARCHIVE"
+  rm -f "$SIGNING_FILE" "$MODEL_FILE" "$SHERPA_AAR" "$ESPEAK_ARCHIVE" "$ICON_B64_TEMP" "$ICON_RESOURCE"
   rm -rf "$ESPEAK_ASSET_DIR"
 }
 trap cleanup EXIT
 
 python3 scripts/apply_monolith_refactor.py
 
+# Reconstruct the exact user-selected face/hair-focused launcher WebP from repository-safe
+# text fragments. The hashes make this deterministic and prevent a partial icon from compiling.
+cat \
+  "$ICON_PREFIX_DIR/r00a.b64" \
+  "$ICON_PREFIX_DIR/r00b.b64" \
+  "$ICON_PREFIX_DIR/q00b.b64" \
+  "$ICON_PREFIX_DIR/p01.b64" \
+  "$ICON_PREFIX_DIR/p02.b64" \
+  "$ICON_PREFIX_DIR/p03.b64" \
+  "$ICON_MIDDLE" \
+  "$ICON_PREFIX_DIR/p20.b64" \
+  "$ICON_PREFIX_DIR/p21.b64" \
+  "$ICON_PREFIX_DIR/q22a.b64" \
+  "$ICON_PREFIX_DIR/q22b.b64" \
+  "$ICON_PREFIX_DIR/p23.b64" \
+  "$ICON_TAIL" \
+  | tr -d '\r\n' > "$ICON_B64_TEMP"
+
+test "$(stat -c%s "$ICON_B64_TEMP")" = "$ICON_B64_BYTES"
+echo "$ICON_B64_SHA  $ICON_B64_TEMP" | sha256sum -c -
+base64 -d "$ICON_B64_TEMP" > "$ICON_RESOURCE"
+test "$(stat -c%s "$ICON_RESOURCE")" = "$ICON_BYTES"
+echo "$ICON_SHA  $ICON_RESOURCE" | sha256sum -c -
+
 # Fast source validation before any large model transfer.
 grep -q 'applicationId = "ai.monolith.app"' app/build.gradle
 grep -q 'namespace = "ai.monolith.app"' app/build.gradle
-grep -q 'versionName = "Beta 2.0.03"' app/build.gradle
-grep -q 'versionCode = 200003' app/build.gradle
+grep -q 'versionName = "Beta 2.0.04"' app/build.gradle
+grep -q 'versionCode = 200004' app/build.gradle
 grep -q 'org.jetbrains.kotlin.android' app/build.gradle
 grep -q 'kotlinx-coroutines-android:1.11.0' app/build.gradle
 grep -q 'JvmTarget.JVM_1_8' app/build.gradle
 grep -q 'JavaVersion.VERSION_1_8' app/build.gradle
 grep -q 'sherpa-onnx-1.13.4.aar' app/build.gradle
 grep -q '<string name="app_name">Monolith AI</string>' app/src/main/res/values/strings.xml
+
 grep -q 'android:name="ai.monolith.app.MonolithApplication"' app/src/main/AndroidManifest.xml
 grep -q 'android:name="ai.monolith.app.MonolithBootstrapActivity"' app/src/main/AndroidManifest.xml
 grep -q 'android:name="ai.monolith.app.MonolithActivity"' app/src/main/AndroidManifest.xml
@@ -62,8 +98,41 @@ grep -q 'android.service.voice.VoiceInteractionService' app/src/main/AndroidMani
 grep -q 'BIND_VOICE_INTERACTION' app/src/main/AndroidManifest.xml
 grep -q 'MonolithAccessibilityService' app/src/main/AndroidManifest.xml
 grep -q 'MonolithSearchWidgetProvider' app/src/main/AndroidManifest.xml
+
 grep -q 'MONOLITH AI RUNTIME DIAGNOSTIC' app/src/main/java/ai/monolith/app/MonolithApplication.java
-grep -q 'STARTING MONOLITH CORE // ISOLATED PROCESS' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+grep -q 'DETERMINISTIC STARTUP BOUNDARY // BETA 2.0.04' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+grep -q 'SciFiButtonDrawable' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+grep -q 'monolith.bootstrap --cold-start' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+
+# Android 16 / Samsung startup regression guard. Immersive mode must not query an insets
+# controller until the DecorView is attached to a window.
+grep -q 'private void scheduleImmersiveMode()' app/src/main/java/com/example/janeai/MainActivity.java
+grep -q 'decorView.isAttachedToWindow()' app/src/main/java/com/example/janeai/MainActivity.java
+grep -q 'decorView.getWindowInsetsController()' app/src/main/java/com/example/janeai/MainActivity.java
+if grep -q 'getWindow().getInsetsController()' app/src/main/java/com/example/janeai/MainActivity.java; then
+  echo 'Unsafe Window.getInsetsController() startup path remains after refactor.' >&2
+  exit 1
+fi
+python3 - <<'PYLIFECYCLE'
+from pathlib import Path
+text = Path('app/src/main/java/com/example/janeai/MainActivity.java').read_text(encoding='utf-8')
+orientation = text.index('setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);')
+webview = text.index('webView = new WebView(this);', orientation)
+between = text[orientation:webview]
+if 'applyImmersiveMode();' in between or 'scheduleImmersiveMode();' in between:
+    raise SystemExit('Immersive mode is still scheduled before the WebView/decor startup boundary.')
+content = text.index('setContentView(webView);', webview)
+after_content = text[content:content + 220]
+if 'scheduleImmersiveMode();' not in after_content:
+    raise SystemExit('Post-content immersive scheduling is missing.')
+print('Android 16 DecorView attachment lifecycle validated.')
+PYLIFECYCLE
+
+grep -q '@drawable/monolith_launcher_focus' app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+grep -q '@drawable/monolith_launcher_focus' app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+grep -q '@drawable/monolith_launcher_focus' app/src/main/res/mipmap-anydpi/ic_launcher.xml
+grep -q '@drawable/monolith_launcher_focus' app/src/main/res/mipmap-anydpi/ic_launcher_round.xml
+
 grep -q 'MonolithCrashGuard.beginLaunch' app/src/main/java/ai/monolith/app/MonolithActivity.java
 grep -q 'MonolithCoroutineScope' app/src/main/java/ai/monolith/app/MonolithActivity.java
 grep -q 'deferred-until-voice-module' app/src/main/java/ai/monolith/app/MonolithActivity.java
@@ -83,6 +152,7 @@ grep -q 'Monolith Model' app/src/main/assets/monolith_core.js
 grep -q 'Voice Module' app/src/main/assets/monolith_core.js
 grep -q 'STARFINDER 1E TABLETOP ENGINE' app/src/main/assets/monolith_core.js
 grep -q 'monolith_voice_runtime_patch.js' app/src/main/java/ai/monolith/app/MonolithActivity.java
+
 node --check app/src/main/assets/jane_response_surface.js
 node --check app/src/main/assets/jane_command_deck.js
 node --check app/src/main/assets/jane_qol_runtime.js
@@ -97,6 +167,10 @@ for p in [
     'app/src/main/res/xml/monolith_accessibility_service.xml',
     'app/src/main/res/xml/monolith_search_widget_info.xml',
     'app/src/main/res/layout/monolith_search_widget.xml',
+    'app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+    'app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
+    'app/src/main/res/mipmap-anydpi/ic_launcher.xml',
+    'app/src/main/res/mipmap-anydpi/ic_launcher_round.xml',
 ]:
     ET.parse(p)
 print('Monolith XML metadata parsed successfully.')
@@ -171,8 +245,8 @@ app_id = re.search(r'applicationId\s*=\s*"([^"]+)"', gradle_text)
 version_code = re.search(r'versionCode\s*=\s*(\d+)', gradle_text)
 version_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle_text)
 if not app_id or app_id.group(1) != 'ai.monolith.app': raise SystemExit('Monolith applicationId validation failed.')
-if not version_code or version_code.group(1) != '200003': raise SystemExit('Monolith Beta 2.0.03 versionCode validation failed.')
-if not version_name or version_name.group(1) != 'Beta 2.0.03': raise SystemExit('Monolith Beta 2.0.03 version validation failed.')
+if not version_code or version_code.group(1) != '200004': raise SystemExit('Monolith Beta 2.0.04 versionCode validation failed.')
+if not version_name or version_name.group(1) != 'Beta 2.0.04': raise SystemExit('Monolith Beta 2.0.04 version validation failed.')
 for required_manifest_token in [
     'ai.monolith.app.MonolithApplication',
     'ai.monolith.app.MonolithBootstrapActivity',
@@ -190,15 +264,17 @@ with zipfile.ZipFile(apk) as z:
         raise SystemExit('APK is missing Piper espeak-ng runtime data.')
     if not any('sherpa' in n.lower() and n.endswith('.so') for n in names):
         raise SystemExit('APK is missing sherpa-onnx native runtime libraries.')
+    if not any(n.endswith('/monolith_launcher_focus.webp') or n == 'res/drawable-nodpi/monolith_launcher_focus.webp' for n in names):
+        raise SystemExit('APK is missing the new face-focused Monolith launcher resource.')
     info=z.getinfo(asset)
     if info.file_size != expected_size or info.compress_type != zipfile.ZIP_STORED: raise SystemExit('Offline model packaging mismatch.')
     h=hashlib.sha256()
     with z.open(info) as f:
         for block in iter(lambda:f.read(1024*1024),b''): h.update(block)
     if h.hexdigest()!=expected_sha: raise SystemExit('Offline model SHA-256 mismatch.')
-print('Monolith AI Beta 2.0.03 isolated bootstrap, runtime diagnostics, identity, assistant services, local RAG, Piper runtime, modules, and APK assets validated.')
+print('Monolith AI Beta 2.0.04 Android 16 lifecycle fix, permanent startup deck, launcher identity, assistant services, local RAG, Piper runtime, modules, and APK assets validated.')
 PYAPK
 
 cp app/build/outputs/apk/debug/app-debug.apk "$FINAL_APK"
 test -s "$FINAL_APK"
-echo "Installable Monolith AI Beta 2.0.03 APK: $FINAL_APK"
+echo "Installable Monolith AI Beta 2.0.04 APK: $FINAL_APK"
