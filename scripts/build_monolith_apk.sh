@@ -12,7 +12,8 @@ SHERPA_VERSION="1.13.4"
 SHERPA_DIR="$ROOT/app/libs"
 SHERPA_AAR="$SHERPA_DIR/sherpa-onnx-${SHERPA_VERSION}.aar"
 SHERPA_AAR_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v${SHERPA_VERSION}/sherpa-onnx-${SHERPA_VERSION}.aar"
-SHERPA_CHECKSUM_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/v${SHERPA_VERSION}/checksum.txt"
+SHERPA_AAR_BYTES="48847529"
+SHERPA_AAR_SHA="03f9c4df965f21c71269365a7951a7f23b5696fddd093fa318c80d65550ab780"
 ESPEAK_ARCHIVE="$ROOT/.monolith-espeak-ng-data.tar.bz2"
 ESPEAK_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/espeak-ng-data.tar.bz2"
 TTS_ASSET_ROOT="$ROOT/app/src/main/assets/monolith_tts"
@@ -79,11 +80,10 @@ print('Monolith XML metadata parsed successfully.')
 PYXML
 
 # Pin the Android-local TTS runtime without committing a large third-party AAR.
+# GitHub release metadata for v1.13.4 publishes this exact size and SHA-256.
 curl --fail --location --retry 4 --retry-all-errors --connect-timeout 30 --max-time 900 "$SHERPA_AAR_URL" --output "$SHERPA_AAR"
-curl --fail --location --retry 4 --retry-all-errors --connect-timeout 30 --max-time 180 "$SHERPA_CHECKSUM_URL" --output /tmp/sherpa-checksum.txt
-SHERPA_SHA="$(grep -F "sherpa-onnx-${SHERPA_VERSION}.aar" /tmp/sherpa-checksum.txt | head -n 1 | awk '{print $1}')"
-test -n "$SHERPA_SHA"
-echo "$SHERPA_SHA  $SHERPA_AAR" | sha256sum -c -
+test "$(stat -c%s "$SHERPA_AAR")" = "$SHERPA_AAR_BYTES"
+echo "$SHERPA_AAR_SHA  $SHERPA_AAR" | sha256sum -c -
 test -s "$SHERPA_AAR"
 
 # Piper phonemization data is shared by converted Piper voices.
