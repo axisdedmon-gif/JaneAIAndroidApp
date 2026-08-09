@@ -65,15 +65,22 @@ jobs:
           node --check app/src/main/assets/monolith_scene_runtime.js
           node --check app/src/main/assets/monolith_voice_runtime_patch.js
           node --check app/src/main/assets/monolith_final_ui.js
-          grep -q 'MONOLITH-SCENE-2' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'MONOLITH-SCENE-3' app/src/main/assets/monolith_scene_runtime.js
           grep -q '__monolithExclusiveRouter' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolith-launch' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'House Dedmon Access' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'house_dedmon_crest.webp' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolithEnterButton' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolith_landscape_gen2.css' app/src/main/assets/monolith_scene_runtime.js
+          grep -q '#home\[data-jane-scene="command"\]' app/src/main/assets/monolith_landscape_gen2.css
+          grep -q '.dedmon-launch-shell' app/src/main/assets/monolith_landscape_gen2.css
           grep -q 'MONOLITH-CORE-2' app/src/main/assets/monolith_core.js
           if grep -q 'ensureOverlay\|state\.overlay' app/src/main/assets/monolith_core.js; then
             echo 'Deprecated module overlay architecture survived in monolith_core.js.' >&2
             exit 1
           fi
           if grep -q 'House Dedmon Access' app/src/main/assets/index.html; then
-            echo 'Legacy House Dedmon full-screen overlay survived scene cleanup.' >&2
+            echo 'Legacy House Dedmon overlay survived in index.html; dedicated launch scene must own access UI.' >&2
             exit 1
           fi
           if grep -q '"72 BPM"\|"98.6°F"' app/src/main/assets/index.html; then
@@ -85,6 +92,8 @@ jobs:
           grep -q 'MONOLITH AI RUNTIME DIAGNOSTIC' app/src/main/java/ai/monolith/app/MonolithApplication.java
           grep -q 'DETERMINISTIC STARTUP BOUNDARY' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
           grep -q 'CORE BOOT LOCKED // CLEAR DIAGNOSTIC FIRST' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+          test -s app/src/main/assets/monolith_landscape_gen2.css
+          test -s app/src/main/assets/house_dedmon_crest.webp
           test -s app/src/main/res/drawable/scifi_hardware_frame.xml
           test -s app/src/main/res/drawable/scifi_reactor_button.xml
 
@@ -104,6 +113,7 @@ jobs:
             echo "- Monolith generation: \`${MONOLITH_GEN}\`"
             echo "- UI generation: \`${UI_GEN}\`"
             echo "- patch: \`${PATCH_GEN}\`"
+            echo '- launch flow: `BIOS -> House Dedmon Access -> Command Chamber`'
             echo '- layout: `exclusive landscape scenes`'
             echo '- visual system: `cybernetic hard-sci-fi`'
           } >> "$GITHUB_STEP_SUMMARY"
