@@ -17,6 +17,7 @@ required_files = [
     ASSETS / "monolith_final_ui.css",
     ASSETS / "monolith_final_ui.js",
     ASSETS / "monolith_landscape_gen2.css",
+    ASSETS / "monolith_hardware_gen3.css",
     ASSETS / "house_dedmon_crest.webp",
     RES / "drawable/scifi_hardware_frame.xml",
     RES / "drawable/scifi_reactor_button.xml",
@@ -34,6 +35,7 @@ core = (ASSETS / "monolith_core.js").read_text(encoding="utf-8")
 voice = (ASSETS / "monolith_voice_runtime_patch.js").read_text(encoding="utf-8")
 final_css = (ASSETS / "monolith_final_ui.css").read_text(encoding="utf-8")
 landscape_css = (ASSETS / "monolith_landscape_gen2.css").read_text(encoding="utf-8")
+hardware_css = (ASSETS / "monolith_hardware_gen3.css").read_text(encoding="utf-8")
 final_js = (ASSETS / "monolith_final_ui.js").read_text(encoding="utf-8")
 index = (ASSETS / "index.html").read_text(encoding="utf-8")
 manifest = MANIFEST.read_text(encoding="utf-8")
@@ -123,8 +125,35 @@ for token in (
     if token not in final_css:
         raise SystemExit(f"Secondary cybernetic layout token missing: {token}")
 
-if "auditExclusiveScene" not in final_js:
-    raise SystemExit("Final UI runtime does not contain its scene-exclusivity audit.")
+for token in (
+    "MONOLITH-FINAL-UI-2",
+    "monolith_hardware_gen3.css",
+    "monolithInteractionBridge",
+    "monolithActionWired",
+    'document.addEventListener("pointerup"',
+    "enterMonolith",
+    "auditExclusiveScene",
+):
+    if token not in final_js:
+        raise SystemExit(f"Generation-3 interaction/runtime token missing: {token}")
+
+for token in (
+    "--hw-brass",
+    "repeating-conic-gradient",
+    "mix-blend-mode:screen",
+    ".dedmon-crest-bay",
+    "width:min(68vh,560px)",
+    ".dedmon-reactor-button",
+    ".telemetry-track",
+    ".deck-nav-pod",
+):
+    if token not in hardware_css:
+        raise SystemExit(f"Generation-3 tactile hardware token missing: {token}")
+
+if hardware_css.count("box-shadow") < 15:
+    raise SystemExit("Generation-3 hardware skin is too visually shallow; expected layered physical depth.")
+if hardware_css.count("border:2px") < 8:
+    raise SystemExit("Generation-3 hardware skin is missing multi-layer mechanical housings.")
 
 for forbidden in ('"72 BPM"', '"98.6°F"'):
     if forbidden in index:
@@ -187,7 +216,8 @@ for xml_path in (
     ET.parse(xml_path)
 
 print(
-    "Final Monolith architecture validated: scene generation 4 releases hidden startup synchronously, "
-    "Android requires computed geometry and foreground hit-testing before Core becomes stable, and "
-    "Safe Base remains a native WebView-disabled recovery console."
+    "Final Monolith architecture validated: scene generation 4 releases hidden startup synchronously; "
+    "generation-3 UI installs an idempotent touch interaction bridge and tactile mechanical hardware skin; "
+    "the House Dedmon crest is promoted to centerpiece scale; Android still requires computed geometry and "
+    "foreground hit-testing before Core becomes stable; Safe Base remains native and WebView-disabled."
 )
