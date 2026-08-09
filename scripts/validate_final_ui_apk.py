@@ -16,6 +16,8 @@ required_assets = {
     "assets/monolith_voice_runtime_patch.js",
     "assets/monolith_final_ui.css",
     "assets/monolith_final_ui.js",
+    "assets/monolith_landscape_gen2.css",
+    "assets/house_dedmon_crest.webp",
 }
 
 with zipfile.ZipFile(apk) as archive:
@@ -30,7 +32,7 @@ with zipfile.ZipFile(apk) as archive:
 
     index = archive.read("assets/index.html").decode("utf-8", errors="replace")
     if "House Dedmon Access" in index:
-        raise SystemExit("Legacy House Dedmon visual gate was packaged into the APK.")
+        raise SystemExit("Legacy House Dedmon overlay was packaged in index.html.")
     if '"72 BPM"' in index or '"98.6°F"' in index:
         raise SystemExit("Fake biometric values were packaged into the APK.")
     if 'id="ownerGate" class="hidden"' not in index:
@@ -40,8 +42,30 @@ with zipfile.ZipFile(apk) as archive:
     if "ensureOverlay" in core or "state.overlay" in core:
         raise SystemExit("Deprecated Monolith overlay architecture was packaged into the APK.")
 
-    final_css = archive.read("assets/monolith_final_ui.css").decode("utf-8", errors="replace")
-    if "54.5%" not in final_css or ".jane-chat-grid" not in final_css:
-        raise SystemExit("Final landscape scene geometry is missing from packaged CSS.")
+    runtime = archive.read("assets/monolith_scene_runtime.js").decode("utf-8", errors="replace")
+    for token in (
+        "MONOLITH-SCENE-3",
+        "monolith-launch",
+        "House Dedmon Access",
+        "house_dedmon_crest.webp",
+        "monolithEnterButton",
+        "__monolithExclusiveRouter",
+    ):
+        if token not in runtime:
+            raise SystemExit(f"Packaged scene runtime is missing dedicated launch token: {token}")
 
-print(f"Packaged final UI validated inside {apk.name}: exclusive scenes, legacy overlay removal, and landscape cybernetic assets are present.")
+    landscape = archive.read("assets/monolith_landscape_gen2.css").decode("utf-8", errors="replace")
+    for token in (
+        ".monolith-launch-scene",
+        ".dedmon-launch-shell",
+        '#home[data-jane-scene="command"]',
+        "55%",
+        '#vn[data-jane-scene="chat"]',
+    ):
+        if token not in landscape:
+            raise SystemExit(f"Generation-2 landscape geometry is missing from packaged CSS: {token}")
+
+print(
+    f"Packaged final UI validated inside {apk.name}: dedicated House Dedmon launch scene, "
+    "exclusive landscape scenes, and generation-2 cybernetic geometry are present."
+)
