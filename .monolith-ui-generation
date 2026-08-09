@@ -1,0 +1,8 @@
+generation=1
+architecture=exclusive-scene-router
+orientation=sensorLandscape
+visual_system=cybernetic-hard-scifi
+boot_boundary=deterministic-native-bios
+module_scenes=command,chat,archives,studio,settings,monolith-model,monolith-voice,monolith-rpg
+legacy_fullscreen_overlays=disabled
+fake_biometric_telemetry=disabled
