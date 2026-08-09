@@ -8,9 +8,10 @@ html = INDEX.read_text(encoding="utf-8")
 
 # The native Monolith BIOS is the only launch scene. The old House Dedmon gate remains only as
 # a hidden compatibility anchor because the preserved command-deck initializer still looks up
-# #ownerGate before MonolithSceneRuntime takes exclusive ownership of navigation.
+# #ownerGate and specifically checks its legacy `hidden` CSS class before MonolithSceneRuntime
+# takes exclusive ownership of navigation.
 compat_gate = (
-    '<div id="ownerGate" hidden aria-hidden="true" style="display:none!important">'
+    '<div id="ownerGate" class="hidden" hidden aria-hidden="true" style="display:none!important">'
     '<button id="launchJaneButton" type="button" hidden tabindex="-1" aria-hidden="true"></button>'
     '</div>'
 )
@@ -28,6 +29,8 @@ if gate_count == 0:
         raise SystemExit("Owner-gate compatibility anchor is missing.")
     if "House Dedmon Access" in html or 'class="owner-gate"' in html or 'class="owner-card"' in html:
         raise SystemExit("Legacy House Dedmon gate changed shape; refusing to package an uncertain overlay.")
+    if 'id="ownerGate" class="hidden"' not in html:
+        raise SystemExit("Owner-gate compatibility anchor is not marked with the legacy hidden class.")
 
 # Remove former simulated human-biometric card payloads. Real telemetry comes from AndroidHud.
 # Never allow invented heart rate, body temperature, oxygen, blood pressure, hydration, neural
