@@ -1,7 +1,11 @@
 (function () {
   "use strict";
 
-  const VERSION = "MONOLITH-FINAL-UI-1";
+  const VERSION = "MONOLITH-FINAL-UI-2";
+  const HARDWARE_CSS_ID = "monolith-hardware-gen3-css";
+  const HARDWARE_CSS_PATH = "file:///android_asset/monolith_hardware_gen3.css";
+  const ENTER_ID = "monolithEnterButton";
+
   if (window.MonolithFinalUi && window.MonolithFinalUi.version === VERSION) {
     window.MonolithFinalUi.refresh();
     return;
@@ -10,8 +14,32 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
+  let lastEnterActivationAt = 0;
+  let interactionBridgeInstalled = false;
+
   function setText(node, value) {
     if (node && node.textContent !== value) node.textContent = value;
+  }
+
+  function ensureHardwareCss() {
+    let link = document.getElementById(HARDWARE_CSS_ID);
+    if (link) return link;
+
+    link = document.createElement("link");
+    link.id = HARDWARE_CSS_ID;
+    link.rel = "stylesheet";
+    link.href = HARDWARE_CSS_PATH;
+    link.dataset.monolithLoadState = "loading";
+    link.addEventListener("load", () => {
+      link.dataset.monolithLoadState = "loaded";
+      document.documentElement.dataset.monolithHardwareUi = "ready";
+    }, { once: true });
+    link.addEventListener("error", () => {
+      link.dataset.monolithLoadState = "error";
+      document.documentElement.dataset.monolithHardwareUi = "error";
+    }, { once: true });
+    document.head.appendChild(link);
+    return link;
   }
 
   function commandDeckInitialized() {
@@ -19,8 +47,6 @@
   }
 
   function removeDeprecatedLayers() {
-    // Preserve the hidden compatibility anchor only until jane_command_deck.js has built the
-    // scene graph. It never becomes visible and is deleted as soon as routing exists.
     if (commandDeckInitialized()) document.getElementById("ownerGate")?.remove();
     document.getElementById("janeVitalsHUD")?.remove();
     document.getElementById("monolithModuleOverlay")?.remove();
@@ -119,6 +145,92 @@
     console.warn("[Monolith UI] Corrected multiple active scenes; retained", preferred?.dataset.janeScene);
   }
 
+  function isEnterTarget(target) {
+    if (!(target instanceof Element)) return null;
+    return target.id === ENTER_ID ? target : target.closest(`#${ENTER_ID}`);
+  }
+
+  function enterMonolith(event) {
+    const button = isEnterTarget(event && event.target);
+    if (!button) return false;
+
+    const now = performance.now();
+    if (now - lastEnterActivationAt < 450) {
+      event.preventDefault();
+      event.stopPropagation();
+      return true;
+    }
+    lastEnterActivationAt = now;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    button.dataset.monolithActionWired = "true";
+    document.documentElement.dataset.monolithEnterLastEvent = event.type || "unknown";
+    document.documentElement.dataset.monolithEnterActivatedAt = String(Date.now());
+    document.body.classList.add("monolith-owner-authorized");
+
+    let opened = false;
+    try {
+      if (window.MonolithSceneRuntime && typeof window.MonolithSceneRuntime.open === "function") {
+        opened = window.MonolithSceneRuntime.open("command", {
+          push: false,
+          replace: true,
+          cue: "launch"
+        }) !== false;
+      }
+    } catch (error) {
+      console.error("[Monolith UI] Scene runtime enter failed", error);
+    }
+
+    if (!opened) {
+      try {
+        if (window.JaneSceneRouter && typeof window.JaneSceneRouter.open === "function") {
+          opened = window.JaneSceneRouter.open("command", {
+            push: false,
+            replace: true,
+            cue: "launch"
+          }) !== false;
+        }
+      } catch (error) {
+        console.error("[Monolith UI] Base router enter failed", error);
+      }
+    }
+
+    document.documentElement.dataset.monolithEnterResult = opened ? "opened-command" : "router-failed";
+    return true;
+  }
+
+  function wireLaunchInteraction() {
+    const button = document.getElementById(ENTER_ID);
+    if (button) {
+      button.dataset.monolithActionWired = "true";
+      button.style.pointerEvents = "auto";
+      button.style.touchAction = "manipulation";
+      button.removeAttribute("disabled");
+      button.setAttribute("aria-disabled", "false");
+    }
+
+    if (interactionBridgeInstalled) return;
+    interactionBridgeInstalled = true;
+
+    document.addEventListener("click", event => {
+      if (isEnterTarget(event.target)) enterMonolith(event);
+    }, true);
+
+    document.addEventListener("pointerup", event => {
+      if (!isEnterTarget(event.target)) return;
+      if (event.pointerType === "touch" || event.pointerType === "pen") enterMonolith(event);
+    }, true);
+
+    document.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      if (isEnterTarget(event.target)) enterMonolith(event);
+    }, true);
+
+    document.documentElement.dataset.monolithInteractionBridge = "installed";
+  }
+
   function addRuntimeCss() {
     if (document.getElementById("monolith-final-ui-runtime-css")) return;
     const style = document.createElement("style");
@@ -130,18 +242,21 @@
       .mono-stage-bracket{position:absolute;z-index:7;top:20%;bottom:20%;width:14px;pointer-events:none;border-top:1px solid rgba(0,229,255,.24);border-bottom:1px solid rgba(0,229,255,.24)}.mono-stage-bracket.left{left:9px;border-left:2px solid rgba(0,229,255,.32)}.mono-stage-bracket.right{right:9px;border-right:2px solid rgba(255,109,0,.32)}
       .mono-greeble-rail{position:absolute;z-index:8;right:10px;bottom:9px;display:flex;gap:3px;pointer-events:none}.mono-greeble-rail i{width:5px;height:2px;background:rgba(0,229,255,.34)}.mono-greeble-rail i:nth-child(4),.mono-greeble-rail i:nth-child(5){background:#ff6d00;opacity:.68}
       .mono-console-label{position:relative;z-index:4;height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 5px;margin-bottom:2px;border-bottom:1px solid rgba(0,229,255,.09);color:#648b98;font:700 6px ui-monospace,monospace;letter-spacing:.1em}.mono-console-label b{color:#00e5ff;font-weight:800}
+      #monolithEnterButton{pointer-events:auto!important;touch-action:manipulation!important;-webkit-user-select:none!important;user-select:none!important}
     `;
     document.head.appendChild(style);
   }
 
   function refresh() {
     document.body.classList.add("monolith-final-ui");
+    ensureHardwareCss();
     removeDeprecatedLayers();
     addRuntimeCss();
     normalizeCommandLabels();
     installStageHardware();
     normalizeChat();
     installPanelGreebles();
+    wireLaunchInteraction();
     auditExclusiveScene();
     return true;
   }
@@ -152,6 +267,6 @@
   const observer = new MutationObserver(() => requestAnimationFrame(refresh));
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  window.MonolithFinalUi = { version: VERSION, refresh };
+  window.MonolithFinalUi = { version: VERSION, refresh, enterMonolith };
   refresh();
 })();
