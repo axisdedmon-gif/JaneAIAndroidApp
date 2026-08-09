@@ -20,6 +20,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Protected Monolith voice workspace. Datasets and imported model targets live under
@@ -199,6 +202,8 @@ public final class VoiceModelStore {
     public synchronized String importAsset(Uri uri) throws Exception {
         String name = safe(displayName(uri));
         String lower = name.toLowerCase(Locale.US);
+        if (lower.endsWith(".zip")) return importDatasetZip(uri, name);
+
         File target;
         if (lower.endsWith("tokens.txt")) {
             File modelDir = bestTokensTarget();
@@ -217,6 +222,86 @@ public final class VoiceModelStore {
         copy(uri, target);
         PiperTtsEngine.invalidate();
         return target.getAbsolutePath();
+    }
+
+    private String importDatasetZip(Uri uri, String fileName) throws Exception {
+        String base = safe(fileName.replaceFirst("(?i)\\.zip$", ""));
+        File destination = new File(new File(root, "datasets"), base);
+        if (destination.exists()) destination = new File(new File(root, "datasets"), base + "_" + System.currentTimeMillis());
+        ensure(destination);
+        File wavDir = new File(destination, "wav");
+        ensure(wavDir);
+        boolean metadataFound = false;
+        int wavCount = 0;
+        long total = 0L;
+        try (InputStream raw = context.getContentResolver().openInputStream(uri); ZipInputStream zip = new ZipInputStream(raw)) {
+            if (raw == null) throw new IllegalStateException("Selected dataset archive could not be opened.");
+            ZipEntry entry;
+            byte[] buffer = new byte[16384];
+            while ((entry = zip.getNextEntry()) != null) {
+                if (entry.isDirectory()) { zip.closeEntry(); continue; }
+                String normalized = entry.getName().replace('\\', '/');
+                String leaf = normalized.substring(normalized.lastIndexOf('/') + 1);
+                if (leaf.isEmpty()) { zip.closeEntry(); continue; }
+                File target = null;
+                if (leaf.equalsIgnoreCase("metadata.csv")) {
+                    target = new File(destination, "metadata.csv");
+                    metadataFound = true;
+                } else if (leaf.toLowerCase(Locale.US).endsWith(".wav")) {
+                    target = new File(wavDir, safe(leaf));
+                    wavCount++;
+                }
+                if (target != null) {
+                    try (FileOutputStream out = new FileOutputStream(target, false)) {
+                        int read;
+                        while ((read = zip.read(buffer)) != -1) {
+                            total += read;
+                            if (total > 4L * 1024L * 1024L * 1024L) throw new IllegalStateException("Dataset archive exceeds the 4 GB import limit.");
+                            out.write(buffer, 0, read);
+                        }
+                    }
+                }
+                zip.closeEntry();
+            }
+        }
+        if (!metadataFound || wavCount == 0) {
+            deleteTree(destination);
+            throw new IllegalStateException("Dataset ZIP must contain metadata.csv and at least one WAV file.");
+        }
+        return destination.getAbsolutePath();
+    }
+
+    private static void deleteTree(File file) {
+        if (file == null || !file.exists()) return;
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) for (File child : children) deleteTree(child);
+        }
+        try { file.delete(); } catch (Exception ignored) {}
+    }
+
+    public synchronized File exportDataset(String datasetId) throws Exception {
+        File dataset = new File(new File(root, "datasets"), safe(datasetId));
+        File metadata = new File(dataset, "metadata.csv");
+        File wavDir = new File(dataset, "wav");
+        File[] wavs = wavDir.listFiles((d, n) -> n.toLowerCase(Locale.US).endsWith(".wav"));
+        if (!metadata.isFile() || wavs == null || wavs.length == 0) throw new IllegalStateException("Dataset requires metadata.csv and WAV samples before export.");
+        File target = new File(new File(root, "exports"), safe(datasetId) + "_piper_dataset.zip");
+        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(target, false))) {
+            addZipFile(zip, metadata, "metadata.csv");
+            for (File wav : wavs) addZipFile(zip, wav, "wav/" + wav.getName());
+        }
+        return target;
+    }
+
+    private static void addZipFile(ZipOutputStream zip, File source, String entryName) throws Exception {
+        zip.putNextEntry(new ZipEntry(entryName));
+        try (FileInputStream in = new FileInputStream(source)) {
+            byte[] buffer = new byte[16384];
+            int read;
+            while ((read = in.read(buffer)) != -1) zip.write(buffer, 0, read);
+        }
+        zip.closeEntry();
     }
 
     private void copy(Uri uri, File target) throws Exception {
@@ -267,7 +352,8 @@ public final class VoiceModelStore {
                 File wav = new File(dir, "wav");
                 File[] clips = wav.listFiles((d, n) -> n.toLowerCase(Locale.US).endsWith(".wav"));
                 row.put("clips", clips == null ? 0 : clips.length);
-                row.put("metadata", new File(dir, "metadata.csv").exists());
+                row.put("metadata", new File(dir, "metadata.csv").isFile());
+                row.put("exportable", new File(dir, "metadata.csv").isFile() && clips != null && clips.length > 0);
                 datasets.put(row);
             }
             out.put("datasets", datasets);
