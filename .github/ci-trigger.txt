@@ -1,2 +1,2 @@
 Monolith AI controlled build trigger
-Purpose: emit one push event for the repaired visible-scene startup build.
+Purpose: emit one runner-backed push event after workflow syntax repair.
