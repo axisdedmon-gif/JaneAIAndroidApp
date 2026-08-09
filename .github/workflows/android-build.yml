@@ -76,12 +76,12 @@ jobs:
           grep -q 'monolithLoadState' app/src/main/assets/monolith_scene_runtime.js
           grep -q '.monolith-launch-scene .dedmon-launch-shell' app/src/main/assets/monolith_scene_runtime.js
           python3 - <<'PYRAF'
-from pathlib import Path
-text = Path('app/src/main/assets/monolith_scene_runtime.js').read_text(encoding='utf-8')
-deadlock = 'requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'
-if deadlock in text:
-    raise SystemExit('Launch visibility still depends on requestAnimationFrame while native WebView starts hidden.')
-PYRAF
+          from pathlib import Path
+          text = Path('app/src/main/assets/monolith_scene_runtime.js').read_text(encoding='utf-8')
+          deadlock = 'requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'
+          if deadlock in text:
+              raise SystemExit('Launch visibility still depends on requestAnimationFrame while native WebView starts hidden.')
+          PYRAF
           grep -q '#home\[data-jane-scene="command"\]' app/src/main/assets/monolith_landscape_gen2.css
           grep -q '.dedmon-launch-shell' app/src/main/assets/monolith_landscape_gen2.css
 
