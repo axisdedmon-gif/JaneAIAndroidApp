@@ -9,7 +9,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 /** Persists only the most recent explicit Android Assist hierarchy for handoff to Monolith. */
-final class AssistSnapshotStore {
+public final class AssistSnapshotStore {
     private static final String PREFS = "monolith.assist";
     private static final String KEY = "latest";
     private static final int MAX_NODES = 320;
@@ -69,7 +69,7 @@ final class AssistSnapshotStore {
         } catch (Exception ignored) {}
     }
 
-    static String read(Context context) {
+    public static String read(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         return prefs.getString(KEY, "{\"capturedAt\":0,\"windows\":[]}");
     }
