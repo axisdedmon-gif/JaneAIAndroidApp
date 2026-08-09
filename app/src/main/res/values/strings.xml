@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">Jane AI Assistant</string>
+    <string name="app_name">Monolith AI</string>
+    <string name="monolith_accessibility_description">Optional Monolith AI window context access. Screen content is read only when explicitly requested or during a user-invoked assistant session.</string>
+    <string name="monolith_widget_description">Monolith AI local-first search and assistant controls.</string>
 </resources>
