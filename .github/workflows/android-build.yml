@@ -43,7 +43,9 @@ jobs:
         run: bash scripts/calculate_monolith_version.sh
 
       - name: Inject Generated Version Into Android and BIOS Surfaces
-        run: python3 scripts/inject_monolith_ci_version.py
+        run: |
+          python3 scripts/inject_monolith_ci_version.py
+          python3 scripts/harden_bootstrap_diagnostics.py
 
       - name: Validate Exclusive Scene Architecture
         run: |
@@ -51,6 +53,7 @@ jobs:
           python3 scripts/validate_final_ui.py
           python3 -m py_compile \
             scripts/inject_monolith_ci_version.py \
+            scripts/harden_bootstrap_diagnostics.py \
             scripts/strip_legacy_scene_overlays.py \
             scripts/validate_final_ui.py \
             scripts/validate_final_ui_apk.py
@@ -81,6 +84,7 @@ jobs:
           grep -q 'android:screenOrientation="sensorLandscape"' app/src/main/AndroidManifest.xml
           grep -q 'MONOLITH AI RUNTIME DIAGNOSTIC' app/src/main/java/ai/monolith/app/MonolithApplication.java
           grep -q 'DETERMINISTIC STARTUP BOUNDARY' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+          grep -q 'CORE BOOT LOCKED // CLEAR DIAGNOSTIC FIRST' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
           test -s app/src/main/res/drawable/scifi_hardware_frame.xml
           test -s app/src/main/res/drawable/scifi_reactor_button.xml
 
