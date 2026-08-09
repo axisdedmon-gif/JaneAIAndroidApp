@@ -1,39 +1,23 @@
-# Jane AI Assistant APK, phone-only build guide
+# Monolith AI APK, phone-only build guide
 
-This package contains the Android project for Jane AI Assistant.
+Monolith AI is built from this repository through the manual GitHub Actions workflow. Jane is the established female character inside Monolith AI rather than the application name.
 
-It is already wired to use the ElevenLabs voice ID:
+## Phone workflow
 
-wScwPA1qCkWo5R2dmlS8
+1. Open the repository's **Actions** tab.
+2. Choose **Monolith AI APK — Beta Builds**.
+3. Use **Run workflow** only when you intentionally want a new APK build.
+4. Download the `MonolithAI-Beta-1.0.01-apk` artifact after the run succeeds.
+5. Install the generated APK.
 
-You still need to host the backend endpoint and insert that endpoint URL into the Android project before building the APK.
+The workflow is deliberately `workflow_dispatch` only. Normal source commits do not start builds.
 
-## What you will do from your phone
+## Offline systems
 
-1. Host the backend API.
-2. Put your ElevenLabs API key into the backend host.
-3. Put your backend URL into the APK project.
-4. Build the APK with GitHub Actions.
-5. Download and install the APK on your phone.
+The APK contains the pinned local language model downloaded and verified during the build. Archives, character state, RPG state, and the Voice Module are local-first. Piper-compatible voice datasets and imported model targets are kept in the app's protected external-files area so APK updates do not replace those files.
 
-## Files that matter
+The legacy hosted speech endpoint remains available to the inherited female-character voice path during the migration. The new Voice Module does not upload training datasets and does not depend on that endpoint for dataset capture/import/export.
 
-Backend files:
-- server.mjs
-- package.json
+## Android identity
 
-Android file to edit:
-- app/src/main/java/com/example/janeai/MainActivity.java
-
-Find this line:
-
-private static final String BACKEND_TTS_URL = "https://YOUR-DOMAIN.com/api/tts";
-
-Replace it with your hosted backend URL, for example:
-
-private static final String BACKEND_TTS_URL = "https://jane-backend.onrender.com/api/tts";
-
-## Important
-
-Do not put your ElevenLabs API key into the APK or HTML.
-Only put it into your backend host environment variables.
+The application ID is `ai.monolith.app`. This is a different Android package identity from earlier builds that used the legacy package, so Android does not treat the first Monolith package install as an in-place update of that old package.
