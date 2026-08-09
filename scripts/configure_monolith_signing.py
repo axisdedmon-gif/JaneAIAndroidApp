@@ -4,8 +4,8 @@ import re
 
 path = Path("app/build.gradle")
 text = path.read_text(encoding="utf-8")
-version_code = int(os.environ.get("MONOLITH_VERSION_CODE", "200002"))
-version_name = os.environ.get("MONOLITH_VERSION_NAME", "Beta 2.0.02").strip()
+version_code = int(os.environ.get("MONOLITH_VERSION_CODE", "200003"))
+version_name = os.environ.get("MONOLITH_VERSION_NAME", "Beta 2.0.03").strip()
 password = os.environ.get("MONOLITH_KEYSTORE_PASSWORD", "")
 alias = os.environ.get("MONOLITH_KEY_ALIAS", "janeupdate").strip()
 
