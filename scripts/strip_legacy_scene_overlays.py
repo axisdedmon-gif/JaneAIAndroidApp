@@ -6,18 +6,18 @@ INDEX = ROOT / "app/src/main/assets/index.html"
 
 html = INDEX.read_text(encoding="utf-8")
 
-# The native Monolith BIOS is the only launch scene. The old House Dedmon gate remains only as
-# a hidden compatibility anchor because the preserved command-deck initializer still looks up
-# #ownerGate and specifically checks its legacy `hidden` CSS class before MonolithSceneRuntime
-# takes exclusive ownership of navigation.
+# The historical House Dedmon gate used to be a body-level overlay inside index.html. Generation 2
+# moves House Dedmon Access into MonolithSceneRuntime as a real peer scene named `monolith-launch`.
+# The legacy command-deck initializer still requires #ownerGate to exist during scene graph creation,
+# so the old overlay is reduced to a hidden compatibility anchor and removed after initialization.
 compat_gate = (
     '<div id="ownerGate" class="hidden" hidden aria-hidden="true" style="display:none!important">'
     '<button id="launchJaneButton" type="button" hidden tabindex="-1" aria-hidden="true"></button>'
     '</div>'
 )
 
-# Match the complete legacy gate by using the following .screen container as the structural
-# boundary. This deliberately accepts both historical owner-card and owner-gate-card revisions.
+# Match the complete historical gate by using the following .screen container as the structural
+# boundary. This deliberately accepts both owner-card and owner-gate-card revisions.
 gate_pattern = re.compile(
     r'''(?s)<div\s+id=["']ownerGate["'][^>]*>.*?</div>\s*</div>\s*(?=<div\s+class=["']screen["'])'''
 )
@@ -28,7 +28,7 @@ if gate_count == 0:
     if 'id="ownerGate"' not in html:
         raise SystemExit("Owner-gate compatibility anchor is missing.")
     if "House Dedmon Access" in html or 'class="owner-gate"' in html or 'class="owner-card"' in html:
-        raise SystemExit("Legacy House Dedmon gate changed shape; refusing to package an uncertain overlay.")
+        raise SystemExit("Legacy House Dedmon overlay changed shape; refusing to package uncertain scene ownership.")
     if 'id="ownerGate" class="hidden"' not in html:
         raise SystemExit("Owner-gate compatibility anchor is not marked with the legacy hidden class.")
 
@@ -46,11 +46,11 @@ for forbidden in (
     'House Dedmon Access',
 ):
     if forbidden in html:
-        raise SystemExit(f"Deprecated visual payload survived cleanup: {forbidden}")
+        raise SystemExit(f"Deprecated index-level visual payload survived cleanup: {forbidden}")
 
 INDEX.write_text(html, encoding="utf-8")
 print(
     "Scene cleanup applied: "
-    f"legacy launch overlays replaced={gate_count}; "
+    f"legacy House Dedmon overlay replaced={gate_count}; "
     f"fake biometric payload blocks removed={vitals_count}."
 )
