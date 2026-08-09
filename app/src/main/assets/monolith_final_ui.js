@@ -10,8 +10,14 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 
+  function commandDeckInitialized() {
+    return Boolean(window.JaneSceneRouter || document.body.classList.contains("jane-deck-ready"));
+  }
+
   function removeDeprecatedLayers() {
-    document.getElementById("ownerGate")?.remove();
+    // Preserve the hidden compatibility anchor only until jane_command_deck.js has built the
+    // scene graph. It never becomes visible and is deleted as soon as routing exists.
+    if (commandDeckInitialized()) document.getElementById("ownerGate")?.remove();
     document.getElementById("janeVitalsHUD")?.remove();
     document.getElementById("monolithModuleOverlay")?.remove();
     $$(".jane-vitals-column,.jane-vital-card,.vital-card").forEach(node => node.remove());
