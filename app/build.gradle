@@ -4,22 +4,22 @@ plugins {
 
 android {
     signingConfigs {
-        janeStable {
-            storeFile file("jane-update-key.jks")
+        monolithStable {
+            storeFile file("monolith-update-key.jks")
             storePassword "JaneUpdate2026"
             keyAlias "janeupdate"
             keyPassword "JaneUpdate2026"
         }
     }
     androidResources {
-        noCompress += ["task"]
+        noCompress += ["task", "onnx"]
     }
 
-    namespace = "com.example.janeai"
+    namespace = "ai.monolith.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.janeai"
+        applicationId = "ai.monolith.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 200001
@@ -28,7 +28,7 @@ android {
 
     buildTypes {
         debug {
-            signingConfig signingConfigs.janeStable
+            signingConfig signingConfigs.monolithStable
         }
     }
 }
@@ -36,7 +36,6 @@ android {
 
 dependencies {
     implementation("com.google.mediapipe:tasks-genai:0.10.27")
-
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 }
