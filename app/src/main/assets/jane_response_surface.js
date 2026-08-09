@@ -1,6 +1,6 @@
-/* V89: make Jane's complete response text reliably touch-scrollable on Android. */
+/* Keep Jane's complete response text reliably touch-scrollable on Android. */
 (function(){
-  const FLAG="data-v89-response-scroll";
+  const FLAG="data-jane-response-scroll";
 
   function install(){
     const route=document.getElementById("vn")||document.querySelector(".vn");
@@ -21,8 +21,8 @@
     dialog.style.setProperty("flex-direction","column","important");
     dialog.style.setProperty("overflow","hidden","important");
 
-    if(!body.__v89TouchBound){
-      body.__v89TouchBound=true;
+    if(!body.__janeResponseTouchBound){
+      body.__janeResponseTouchBound=true;
       // Keep vertical gestures inside the response text instead of allowing an
       // ancestor overlay to steal them. Passive listeners preserve native scroll.
       body.addEventListener("touchstart",function(event){event.stopPropagation();},{passive:true});
@@ -51,7 +51,7 @@
   window.addEventListener("load",install,{once:true});
   install();
 
-  window.JANE_V89_FINAL_RESPONSE={
+  window.JANE_RESPONSE_SURFACE={
     personalityFirstOfflineAI:true,
     exactListRecovery:true,
     knowledgeBound:true,

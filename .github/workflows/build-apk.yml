@@ -1,13 +1,18 @@
-name: Build Jane Android APK
+name: Jane APK — Beta Builds
+run-name: "Beta 1.0.01 APK · run #${{ github.run_number }}"
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - .github/beta-apk-build
 
 permissions:
   contents: read
 
 concurrency:
-  group: jane-v89-final-build
+  group: jane-beta-apk-build
   cancel-in-progress: false
 
 jobs:
@@ -16,7 +21,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - name: Check out flattened V89 source
+      - name: Check out Jane source
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -33,13 +38,13 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and validate final V89 APK
-        run: bash scripts/build_v89_final.sh
+      - name: Build and validate Beta 1.0.01 APK
+        run: bash scripts/build_beta_apk.sh
 
-      - name: Upload final versioned V89 APK only
+      - name: Save Beta 1.0.01 APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JaneAI-V89-final-update-safe-apk
+          name: JaneAI-Beta-1.0.01-apk
           path: dist/*.apk
           if-no-files-found: error
           compression-level: 0

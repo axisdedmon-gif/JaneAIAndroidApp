@@ -22,8 +22,8 @@ android {
         applicationId = "com.example.janeai"
         minSdk = 24
         targetSdk = 35
-        versionCode = 100445
-        versionName = "v88.445-stable-update"
+        versionCode = 200001
+        versionName = "Beta 1.0.01"
     }
 
     buildTypes {

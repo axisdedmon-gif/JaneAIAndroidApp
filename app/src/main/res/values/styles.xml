@@ -2,9 +2,15 @@
     <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowBackground">#010307</item>
+        <item name="android:windowContentTransitions">false</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#0b0812</item>
-        <item name="android:navigationBarColor">#0b0812</item>
+        <item name="android:statusBarColor">#010307</item>
+        <item name="android:navigationBarColor">#010307</item>
+        <item name="android:navigationBarDividerColor">#010307</item>
         <item name="android:fontFamily">sans</item>
     </style>
 </resources>

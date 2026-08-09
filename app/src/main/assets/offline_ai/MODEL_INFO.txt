@@ -1,8 +1,8 @@
-Jane V88 on-device language model
+Jane on-device language model
 Model: Qwen2.5-0.5B-Instruct, dynamic int8 LiteRT task bundle
 License: Apache-2.0
 Source: https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct
 Build asset filename: qwen2_5_0_5b_q8.task
 Expected bytes: 546660344
 SHA-256: e608953f169aeb1bd7b9155fec2559825e08453fc209b84eda3a781ed0452fd2
-The binary model is downloaded and verified by scripts/build_v88_manual.sh.
+The binary model is downloaded and verified by scripts/build_beta_apk.sh.

@@ -1,4 +1,4 @@
-/* V89 final response-screen scrolling. This file changes only Jane's response route. */
+/* Complete response-screen scrolling. This file changes only Jane's response route. */
 #vn.active,
 .vn.active{
   overflow:hidden!important;

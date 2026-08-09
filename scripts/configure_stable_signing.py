@@ -6,13 +6,15 @@ import re
 gradle = Path("app/build.gradle")
 text = gradle.read_text(encoding="utf-8", errors="ignore")
 
-run_number = int(os.environ.get("JANE_VERSION_CODE", "1"))
-version_code = 100000 + run_number
+version_code = int(os.environ.get("JANE_VERSION_CODE", "200001"))
+version_name = os.environ.get("JANE_VERSION_NAME", "Beta 1.0.01").strip()
 keystore_password = os.environ.get("JANE_KEYSTORE_PASSWORD", "")
 key_alias = os.environ.get("JANE_KEY_ALIAS", "janeupdate")
 
 if not keystore_password:
     raise SystemExit("JANE_KEYSTORE_PASSWORD is missing.")
+if not version_name:
+    raise SystemExit("JANE_VERSION_NAME is missing.")
 
 text = re.sub(
     r'applicationId\s*=\s*"[^"]+"',
@@ -28,7 +30,7 @@ text = re.sub(
 )
 text = re.sub(
     r'versionName\s*=\s*"[^"]+"',
-    f'versionName = "v89.{run_number}-stable-update"',
+    f'versionName = "{version_name}"',
     text,
     count=1,
 )

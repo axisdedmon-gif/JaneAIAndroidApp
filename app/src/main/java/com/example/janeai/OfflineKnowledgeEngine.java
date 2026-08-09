@@ -20,7 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * V89 final offline knowledge responder.
+ * On-device knowledge responder.
  *
  * Retrieval is performed locally by MainActivity from Jane's preserved native
  * Archives. This class uses the bundled on-device language model only to reason

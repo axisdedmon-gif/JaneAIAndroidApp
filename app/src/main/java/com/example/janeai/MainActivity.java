@@ -48,6 +48,9 @@ import android.provider.OpenableColumns;
 import android.provider.Settings;
 import android.util.Base64;
 import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -98,6 +101,7 @@ public class MainActivity extends Activity {
     private MediaPlayer mediaPlayer;
     private final AtomicInteger voiceRequestCounter = new AtomicInteger(0);
     private int activeVoiceRequest = 0;
+    private boolean interfaceRevealed = false;
 
     // V79: durable native Knowledge Base archive. Originals and extracted text live
     // under app-private storage, outside WebView/IndexedDB, and survive APK updates.
@@ -129,15 +133,14 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         PDFBoxResourceLoader.init(getApplicationContext());
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        applyImmersiveMode();
 
         webView = new WebView(this);
+        webView.setBackgroundColor(Color.rgb(1, 3, 7));
+        webView.setAlpha(0f);
+        webView.setVisibility(View.INVISIBLE);
         setContentView(webView);
-
-        getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-        );
+        applyImmersiveMode();
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -152,7 +155,23 @@ public class MainActivity extends Activity {
         settings.setUseWideViewPort(true);
 
         webView.addJavascriptInterface(new JaneBridge(), "AndroidJane");
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // The command deck reports readiness after the original launch screen
+                // has its final quote. This guarded fallback prevents a permanent black
+                // window if an older WebView delays the load event.
+                mainHandler.postDelayed(() -> {
+                    if (!interfaceRevealed && webView != null) {
+                        webView.evaluateJavascript(
+                            "if(window.AndroidJane&&AndroidJane.notifyInterfaceReady){AndroidJane.notifyInterfaceReady('launch-fallback');}",
+                            null
+                        );
+                    }
+                }, 2500);
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
@@ -170,12 +189,59 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        applyImmersiveMode();
         if (webView != null) {
             mainHandler.postDelayed(() -> webView.evaluateJavascript(
                 "window.JaneDeviceVitalsChanged && window.JaneDeviceVitalsChanged();",
                 null
             ), 300);
         }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) applyImmersiveMode();
+    }
+
+    private void applyImmersiveMode() {
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams params = getWindow().getAttributes();
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().setAttributes(params);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setStatusBarContrastEnforced(false);
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+            WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            );
+        }
+    }
+
+    private void revealInterface(String readyStage) {
+        if (interfaceRevealed || webView == null) return;
+        interfaceRevealed = true;
+        applyImmersiveMode();
+        webView.setVisibility(View.VISIBLE);
+        webView.animate().cancel();
+        webView.animate().alpha(1f).setDuration(160L).start();
     }
 
 
@@ -1291,7 +1357,7 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    // V88: complete offline RAG. The on-device model first expands the user's
+    // Complete offline RAG. The on-device model first expands the user's
     // meaning into retrieval terms, then synthesizes the retrieved local text.
     // There is no HTTP request and no fragment-stitching fallback in this path.
     private JSONArray mergeKnowledgeResults(JSONArray... batches) throws Exception {
@@ -1567,6 +1633,11 @@ public class MainActivity extends Activity {
     }
 
     public class JaneBridge {
+        @JavascriptInterface
+        public void notifyInterfaceReady(String readyStage) {
+            mainHandler.post(() -> MainActivity.this.revealInterface(readyStage));
+        }
+
         @JavascriptInterface
         public String getDeviceVitals() {
             return MainActivity.this.buildDeviceVitalsJson();

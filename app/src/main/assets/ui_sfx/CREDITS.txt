@@ -1,0 +1,6 @@
+UI sound effects selected from:
+JDSherbert - Sci Fi UI SFX Pack (FREE)
+
+Files were supplied by the app owner for use in Jane's private interface.
+Original sound names are preserved by function in the Git history; packaged
+filenames are shortened only so the WebView can load them reliably.

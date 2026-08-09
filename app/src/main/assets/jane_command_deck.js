@@ -19,169 +19,74 @@
   };
 
   const state = {
-    currentScene: "launch",
+    currentScene: "startup",
     soundEnabled: localStorage.getItem("jane.interface.sound") !== "off",
     archiveMotionEnabled: localStorage.getItem("jane.interface.motion") !== "off",
     portraitVariant: "Kadi_c",
     portraitPose: "",
     greetingMode: false,
+    launching: false,
     sceneMap: {},
     telemetryTimer: 0,
     clockTimer: 0
   };
 
+  const AUDIO_FILES = {
+    tap: "ui_sfx/cursor.ogg",
+    back: "ui_sfx/cancel.ogg",
+    launch: "ui_sfx/popup-open.ogg",
+    forward: "ui_sfx/select-primary.ogg",
+    confirm: "ui_sfx/select-confirm.ogg",
+    close: "ui_sfx/popup-close.ogg",
+    swipe: "ui_sfx/swipe.ogg",
+    error: "ui_sfx/error.ogg"
+  };
+
   const audio = {
-    context: null,
-    master: null,
-    ambientNodes: [],
+    templates: new Map(),
 
     ensure() {
-      if (!state.soundEnabled) return null;
-      if (!this.context) {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return null;
-        this.context = new AudioContextClass();
-        this.master = this.context.createGain();
-        this.master.gain.value = 0.42;
-        this.master.connect(this.context.destination);
-      }
-      if (this.context.state === "suspended") this.context.resume().catch(() => {});
-      return this.context;
-    },
-
-    tone(startHz, endHz, duration, volume, type, delay) {
-      const ctx = this.ensure();
-      if (!ctx || !this.master) return;
-      const now = ctx.currentTime + (delay || 0);
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type || "sine";
-      osc.frequency.setValueAtTime(Math.max(1, startHz), now);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(1, endHz), now + duration);
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, volume), now + .012);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-      osc.connect(gain);
-      gain.connect(this.master);
-      osc.start(now);
-      osc.stop(now + duration + .03);
-    },
-
-    noise(duration, volume, delay) {
-      const ctx = this.ensure();
-      if (!ctx || !this.master) return;
-      const frames = Math.max(1, Math.floor(ctx.sampleRate * duration));
-      const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < frames; i += 1) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / frames, 1.7);
-      const source = ctx.createBufferSource();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-      const now = ctx.currentTime + (delay || 0);
-      filter.type = "bandpass";
-      filter.frequency.value = 2400;
-      filter.Q.value = 1.2;
-      gain.gain.setValueAtTime(volume, now);
-      gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
-      source.buffer = buffer;
-      source.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.master);
-      source.start(now);
+      if (!state.soundEnabled || typeof Audio !== "function") return null;
+      Object.entries(AUDIO_FILES).forEach(([name, path]) => {
+        if (this.templates.has(name)) return;
+        const template = new Audio(path);
+        template.preload = "auto";
+        template.volume = name === "tap" ? .34 : name === "error" ? .48 : .52;
+        this.templates.set(name, template);
+        try { template.load(); } catch (error) {}
+      });
+      return this.templates;
     },
 
     cue(name) {
       if (!state.soundEnabled) return;
-      if (name === "back") {
-        this.tone(510, 190, .19, .055, "triangle", 0);
-        this.tone(270, 150, .18, .026, "sine", .045);
-      } else if (name === "launch") {
-        this.tone(62, 125, .55, .06, "sine", 0);
-        this.tone(170, 690, .42, .045, "sawtooth", .05);
-        this.tone(690, 980, .28, .032, "triangle", .23);
-        this.noise(.34, .028, .08);
-      } else if (name === "forward") {
-        this.tone(210, 540, .16, .045, "triangle", 0);
-        this.tone(520, 790, .13, .022, "sine", .055);
-        this.noise(.11, .014, 0);
-      } else if (name === "confirm") {
-        this.tone(360, 540, .11, .035, "sine", 0);
-        this.tone(540, 720, .13, .024, "triangle", .07);
-      } else if (name === "error") {
-        this.tone(190, 115, .22, .045, "square", 0);
-        this.tone(175, 95, .22, .025, "square", .12);
-      } else {
-        this.tone(390, 470, .075, .022, "triangle", 0);
-        this.noise(.055, .007, 0);
+      this.ensure();
+      const template = this.templates.get(AUDIO_FILES[name] ? name : "tap");
+      if (template) {
+        const player = template.cloneNode(true);
+        player.volume = template.volume;
+        player.play().catch(() => {});
       }
       try { if (navigator.vibrate) navigator.vibrate(name === "launch" ? [10, 22, 14] : 7); } catch (error) {}
     },
 
-    stopAmbient() {
-      const ctx = this.context;
-      if (!ctx) return;
-      this.ambientNodes.forEach(node => {
-        try {
-          if (node.gain) node.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + .18);
-          if (node.stop) node.stop(ctx.currentTime + .22);
-        } catch (error) {}
-      });
-      this.ambientNodes = [];
-    },
+    stopAmbient() {},
 
-    setAmbient(scene) {
-      this.stopAmbient();
-      const ctx = this.ensure();
-      if (!ctx || !this.master || !state.soundEnabled || scene === "launch") return;
-      const frequencies = {
-        command: [43, 86], chat: [48, 96], archives: [54, 108],
-        studio: [39, 117], music: [46, 138], model: [41, 123],
-        settings: [45, 90], travel: [52, 104]
-      }[scene] || [44, 88];
-      const ambientGain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
-      const lfo = ctx.createOscillator();
-      const lfoGain = ctx.createGain();
-      ambientGain.gain.setValueAtTime(.0001, ctx.currentTime);
-      ambientGain.gain.exponentialRampToValueAtTime(.010, ctx.currentTime + .35);
-      filter.type = "lowpass";
-      filter.frequency.value = 430;
-      filter.Q.value = .7;
-      frequencies.forEach((frequency, index) => {
-        const osc = ctx.createOscillator();
-        osc.type = index ? "triangle" : "sine";
-        osc.frequency.value = frequency;
-        osc.detune.value = index ? 3 : -3;
-        osc.connect(filter);
-        osc.start();
-        this.ambientNodes.push(osc);
-      });
-      lfo.type = "sine";
-      lfo.frequency.value = .13;
-      lfoGain.gain.value = .0035;
-      lfo.connect(lfoGain);
-      lfoGain.connect(ambientGain.gain);
-      lfo.start();
-      filter.connect(ambientGain);
-      ambientGain.connect(this.master);
-      this.ambientNodes.push(lfo, ambientGain);
-    },
+    setAmbient() {},
 
     setEnabled(enabled) {
       state.soundEnabled = Boolean(enabled);
       localStorage.setItem("jane.interface.sound", state.soundEnabled ? "on" : "off");
-      if (!state.soundEnabled) this.stopAmbient();
-      else {
+      if (state.soundEnabled) {
         this.ensure();
         this.cue("confirm");
-        this.setAmbient(state.currentScene);
       }
       updateInterfaceSettings();
     }
   };
 
   const vfx = {
-    scene: "launch",
+    scene: "startup",
 
     install() {
       const layer = document.createElement("div");
@@ -385,6 +290,56 @@
     const musicClose = $("#closeMusicStudioBtn", music);
     if (musicTitle) musicTitle.textContent = "Sonic Forge // Audio Laboratory";
     if (musicClose) { musicClose.textContent = "Studio Hub"; musicClose.classList.add("jane-back-button"); }
+
+    const musicPanel = $(".v65Panel", music);
+    const musicCards = $$(".v65Card", musicPanel || music);
+    if (musicPanel && musicCards.length >= 3 && !$(".sonic-control-stack", musicPanel)) {
+      const controls = document.createElement("div");
+      controls.className = "sonic-control-stack lab-control-stack";
+      musicPanel.insertBefore(controls, musicCards[0]);
+      controls.append(musicCards[0], musicCards[1]);
+      musicCards[2].classList.add("lab-output-card");
+
+      const analyzer = document.createElement("section");
+      analyzer.id = "janeSonicAnalyzer";
+      analyzer.className = "lab-visual sonic-analyzer";
+      analyzer.setAttribute("aria-hidden", "true");
+      const bars = Array.from({ length: 36 }, (_, index) => `<i style="--bar:${index};--level:${28 + ((index * 37) % 66)}%"></i>`).join("");
+      analyzer.innerHTML = `<div class="lab-visual-head"><span>SPECTRAL WORKSPACE</span><strong>ENGINE STANDBY</strong></div><div class="sonic-reactor"><div class="sonic-reactor-ring ring-a"></div><div class="sonic-reactor-ring ring-b"></div><div class="sonic-reactor-core"><span>SONIC</span><b>FORGE</b><em>READY</em></div></div><div class="sonic-waveform">${bars}</div><div class="lab-readout-grid"><article><span>INPUT BUS</span><strong>NO SOURCE</strong></article><article><span>PROCESS CHAIN</span><strong>LOCAL PREVIEW</strong></article><article><span>EXPORT MATRIX</span><strong>AUDIO READY</strong></article></div>`;
+      musicPanel.insertBefore(analyzer, musicCards[2]);
+    }
+
+    const meshyPanel = $(".v61Panel", meshy);
+    const meshyCards = $$(".v61Card", meshyPanel || meshy);
+    if (meshyPanel && meshyCards.length >= 4 && !$(".matter-control-stack", meshyPanel)) {
+      // Older patches tagged the entire image-generation and status cards as
+      // hidden while trying to retire individual text-generation controls.
+      // Keep the unsupported controls hidden, but restore the real laboratory
+      // cards so Matter Forge is a complete three-column workspace.
+      meshyCards[0].classList.remove("v70-hidden-textgen");
+      meshyCards[3].classList.remove("v70-hidden-textgen", "v70-hide-status");
+      $("h3", meshyCards[3])?.classList.remove("v70-hide-status");
+
+      const controls = document.createElement("div");
+      controls.className = "matter-control-stack lab-control-stack";
+      meshyPanel.insertBefore(controls, meshyCards[0]);
+      controls.append(meshyCards[0], meshyCards[1]);
+      meshyCards[2].classList.add("matter-preview-card");
+      meshyCards[3].classList.add("matter-status-card");
+
+      const scanner = document.createElement("div");
+      scanner.id = "janeMatterScanner";
+      scanner.setAttribute("aria-hidden", "true");
+      scanner.innerHTML = '<div class="matter-scan-ring ring-one"></div><div class="matter-scan-ring ring-two"></div><div class="matter-wireframe"><i></i><i></i><i></i><i></i><i></i><i></i></div><span>MATTER VOLUME // IDLE</span>';
+      const preview = $("#janeMeshyPreview", meshyCards[2]);
+      if (preview) preview.prepend(scanner);
+
+      const telemetry = document.createElement("div");
+      telemetry.id = "janeMatterTelemetry";
+      telemetry.setAttribute("aria-hidden", "true");
+      telemetry.innerHTML = '<article><span>GEOMETRY</span><strong>AWAITING MODEL</strong><i style="--readout:18%"></i></article><article><span>TOPOLOGY</span><strong>ANALYZER READY</strong><i style="--readout:54%"></i></article><article><span>RIG CHANNEL</span><strong>STANDBY</strong><i style="--readout:32%"></i></article><article><span>EXPORT</span><strong>GLB / OBJ / FBX</strong><i style="--readout:78%"></i></article>';
+      meshyCards[3].appendChild(telemetry);
+    }
   }
 
   function prepareSettingsScene(settings) {
@@ -403,7 +358,7 @@
     const interfaceSettings = document.createElement("section");
     interfaceSettings.id = "janeInterfaceSettings";
     interfaceSettings.className = "settings-section";
-    interfaceSettings.innerHTML = '<div class="jane-setting-chip"><span>Interface FX</span><button id="janeSoundToggle" type="button">Sound: On</button></div><div class="jane-setting-chip"><span>Archive motion</span><button id="janeMotionToggle" type="button">Motion: On</button></div><div class="jane-setting-chip"><span>Navigation relay</span><button id="janeOpenTravelScene" type="button">Open Travel</button></div>';
+    interfaceSettings.innerHTML = '<div class="jane-setting-chip"><span>Interface FX</span><button id="janeSoundToggle" type="button">Sound: On</button></div><div class="jane-setting-chip"><span>Archive motion</span><button id="janeMotionToggle" type="button">Motion: On</button></div>';
 
     const insertionPoint = $("#ownerSetup", card) || card.children[1] || null;
     card.insertBefore(permission, insertionPoint);
@@ -414,13 +369,6 @@
     nexus.setAttribute("aria-hidden", "true");
     nexus.innerHTML = '<div class="settings-nexus-orbit orbit-one"></div><div class="settings-nexus-orbit orbit-two"></div><div class="settings-nexus-core"><span>LOCAL</span><strong>PRIVATE NEXUS</strong><em>SEALED</em></div><div class="settings-nexus-node node-one"><span></span><strong>MEMORY VAULT</strong><small>OWNER BOUND</small></div><div class="settings-nexus-node node-two"><span></span><strong>PERSONALITY CORE</strong><small>UNCHANGED</small></div><div class="settings-nexus-node node-three"><span></span><strong>ARCHIVE LINK</strong><small>NATIVE STORAGE</small></div>';
     card.appendChild(nexus);
-  }
-
-  function prepareTravelScene(travel) {
-    const heading = $(".settings-head h2", travel);
-    const close = $("#closeTravelBtn", travel);
-    if (heading) heading.textContent = "Navigation Relay // Travel";
-    if (close) { close.textContent = "Settings"; close.classList.add("jane-back-button"); }
   }
 
   const portraitFiles = {
@@ -624,6 +572,7 @@
       const release = event => {
         if (!this.dragging) return;
         this.dragging = false;
+        if (this.moved > 9) audio.cue("swipe");
         try { this.list.releasePointerCapture(event.pointerId); } catch (error) {}
       };
       this.list.addEventListener("pointerup", release);
@@ -688,14 +637,12 @@
     const chat = state.sceneMap.chat;
     const archives = state.sceneMap.archives;
     const settings = state.sceneMap.settings;
-    const travel = state.sceneMap.travel;
     const model = state.sceneMap.model;
     const music = state.sceneMap.music;
     if (home) home.classList.toggle("hidden", name !== "command");
     if (chat) chat.classList.toggle("active", name === "chat");
     if (archives) archives.classList.toggle("open", name === "archives");
     if (settings) settings.classList.toggle("active", name === "settings");
-    if (travel) travel.classList.toggle("active", name === "travel");
     if (model) model.classList.toggle("open", name === "model");
     if (music) music.classList.toggle("open", name === "music");
     document.body.classList.toggle("v79-knowledge-open", name === "archives");
@@ -703,7 +650,7 @@
   }
 
   function routeHash(name) {
-    return { command: "command", chat: "chat", archives: "archives", studio: "studio", music: "sonic-forge", model: "matter-forge", settings: "settings", travel: "navigation-relay" }[name] || "command";
+    return { command: "command", chat: "chat", archives: "archives", studio: "studio", music: "sonic-forge", model: "matter-forge", settings: "settings" }[name] || "command";
   }
 
   function activateScene(name, options) {
@@ -750,15 +697,6 @@
       try { if (typeof window.refreshSettingsVisibility === "function") window.refreshSettingsVisibility(false); } catch (error) {}
       updateInterfaceSettings();
     }
-    if (name === "travel") {
-      try {
-        if (typeof window.initMap === "function") window.initMap();
-        if (typeof window.updateTravelStatus === "function") window.updateTravelStatus();
-        if (typeof window.updateHomeStatus === "function") window.updateHomeStatus();
-        if (typeof window.startLiveGps === "function") window.startLiveGps();
-        setTimeout(() => { try { if (window.travelMap) window.travelMap.invalidateSize(); } catch (error) {} }, 220);
-      } catch (error) { console.warn("[Jane travel scene]", error); }
-    }
   }
 
   function navigateBack(fallback) {
@@ -797,16 +735,19 @@
     captureRoute(document.getElementById("janeCloseMeshyStudio"), () => navigateBack("studio"));
     captureRoute(document.getElementById("closeMusicStudioBtn"), () => navigateBack("studio"));
     captureRoute(document.getElementById("closeSettingsBtn"), () => navigateBack("command"));
-    captureRoute(document.getElementById("closeTravelBtn"), () => navigateBack("settings"));
     captureRoute(document.getElementById("privateBtn"), () => activateScene("settings"));
-    captureRoute(document.getElementById("janeOpenTravelScene"), () => activateScene("travel"));
 
     const launch = document.getElementById("launchJaneButton");
     if (launch) {
       launch.addEventListener("click", () => {
+        if (state.launching) return;
+        state.launching = true;
         audio.ensure();
         audio.cue("launch");
-        setTimeout(() => activateScene("command", { push: false, replace: true, cue: null }), 210);
+        document.body.classList.add("jane-deck-launched");
+        const host = document.getElementById("janeSceneHost");
+        if (host) host.setAttribute("aria-hidden", "false");
+        setTimeout(() => activateScene("command", { push: false, replace: true, cue: null }), 90);
       }, true);
     }
 
@@ -883,8 +824,7 @@
     const meshy = document.getElementById("janeMeshyStudio");
     const music = document.getElementById("janeMusicStudio");
     const settings = document.getElementById("ownerModal");
-    const travel = document.getElementById("travelModal");
-    if (!home || !chat || !launch || !archives || !meshy || !music || !settings || !travel) {
+    if (!home || !chat || !launch || !archives || !meshy || !music || !settings) {
       console.error("[Jane Command Deck] Required legacy scene missing.");
       return;
     }
@@ -896,12 +836,12 @@
     const studio = prepareStudioHub();
     prepareStudioScenes(meshy, music);
     prepareSettingsScene(settings);
-    prepareTravelScene(travel);
 
     const host = document.createElement("main");
     host.id = "janeSceneHost";
+    host.setAttribute("aria-hidden", "true");
     document.body.appendChild(host);
-    const scenes = { launch, command: home, chat, archives, studio, music, model: meshy, settings, travel };
+    const scenes = { command: home, chat, archives, studio, music, model: meshy, settings };
     Object.entries(scenes).forEach(([name, element]) => {
       element.dataset.janeScene = name;
       element.dataset.janeActive = "false";
@@ -925,7 +865,25 @@
     window.JaneSceneRouter = { open: activateScene, back: navigateBack, current: () => state.currentScene };
 
     const launchVisible = !launch.classList.contains("hidden");
-    activateScene(launchVisible ? "launch" : "command", { push: false, replace: !launchVisible, cue: null });
+    if (launchVisible) {
+      state.currentScene = "startup";
+      document.body.dataset.janeScene = "startup";
+      Object.values(state.sceneMap).forEach(element => {
+        element.dataset.janeActive = "false";
+        element.setAttribute("aria-hidden", "true");
+      });
+    } else {
+      state.launching = true;
+      document.body.classList.add("jane-deck-launched");
+      host.setAttribute("aria-hidden", "false");
+      activateScene("command", { push: false, replace: true, cue: null });
+    }
+
+    const reportReady = () => requestAnimationFrame(() => requestAnimationFrame(() => {
+      try { window.AndroidJane?.notifyInterfaceReady?.("launch-ready"); } catch (error) {}
+    }));
+    if (document.readyState === "complete") reportReady();
+    else window.addEventListener("load", reportReady, { once: true });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build, { once: true });
