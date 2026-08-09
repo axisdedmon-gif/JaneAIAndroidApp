@@ -70,7 +70,6 @@
   function ensureExternalScene(route) {
     const host = sceneHost();
     if (!host) return null;
-
     let scene = host.querySelector(`:scope > [data-jane-scene="${route}"]`);
     if (!scene) {
       scene = document.createElement("section");
@@ -106,7 +105,6 @@
           <i></i><i></i><i></i><i></i>
           <b>LOCAL</b>
         </div>
-
         <section class="dedmon-launch-core">
           <div class="dedmon-launch-kicker">IDENTITY GATE // HOUSE DEDMON</div>
           <div class="dedmon-crest-bay">
@@ -125,7 +123,6 @@
             <span><i></i>ARCHIVE SEALED</span>
           </div>
         </section>
-
         <aside class="dedmon-launch-rail dedmon-launch-rail-right">
           <div><span>ACCESS</span><strong>AUTHORIZED</strong></div>
           <div><span>CORE</span><strong>STANDBY</strong></div>
@@ -138,16 +135,12 @@
     host.appendChild(scene);
     externalScenes.set(LAUNCH_ROUTE, scene);
 
-    const enter = scene.querySelector("#monolithEnterButton");
-    enter?.addEventListener("click", event => {
+    scene.querySelector("#monolithEnterButton")?.addEventListener("click", event => {
       event.preventDefault();
       event.stopPropagation();
       document.body.classList.add("monolith-owner-authorized");
-      if (routedRouter) {
-        routedRouter.open("command", { push: false, replace: true, cue: "launch" });
-      } else if (baseRouter) {
-        baseRouter.open("command", { push: false, replace: true, cue: "launch" });
-      }
+      if (routedRouter) routedRouter.open("command", { push: false, replace: true, cue: "launch" });
+      else if (baseRouter) baseRouter.open("command", { push: false, replace: true, cue: "launch" });
     }, true);
 
     return scene;
@@ -182,9 +175,7 @@
 
     host.setAttribute("aria-hidden", "false");
     document.body.classList.add("jane-deck-launched");
-    host.querySelectorAll(":scope > [data-jane-scene]").forEach(scene => {
-      setSceneVisible(scene, scene === target);
-    });
+    host.querySelectorAll(":scope > [data-jane-scene]").forEach(scene => setSceneVisible(scene, scene === target));
 
     activeExternal = route;
     document.body.dataset.janeScene = route;
@@ -192,13 +183,9 @@
 
     const opts = options || {};
     if (opts.push === true) {
-      try {
-        history.pushState({ janeScene: route, monolithExternal: true }, "", `#${route}`);
-      } catch (_) {}
+      try { history.pushState({ janeScene: route, monolithExternal: true }, "", `#${route}`); } catch (_) {}
     } else if (opts.replace === true) {
-      try {
-        history.replaceState({ janeScene: route, monolithExternal: true }, "", `#${route}`);
-      } catch (_) {}
+      try { history.replaceState({ janeScene: route, monolithExternal: true }, "", `#${route}`); } catch (_) {}
     }
     return true;
   }
@@ -217,20 +204,17 @@
 
     routedRouter = {
       __monolithExclusiveRouter: true,
-
       open(name, options) {
         const route = routeName(name);
         if (externalScenes.has(route) || route === LAUNCH_ROUTE || Object.values(MODULE_ROUTES).includes(route)) {
           return showExternalScene(route, options);
         }
-
         activeExternal = "";
         hideExternalScenes();
         const result = baseRouter.open(route, options);
         document.body.dataset.janeScene = route;
         return result;
       },
-
       back() {
         if (activeExternal === LAUNCH_ROUTE) return false;
         if (activeExternal) {
@@ -242,12 +226,10 @@
         if (typeof baseRouter.back === "function") return baseRouter.back();
         return baseRouter.open("command", { push: false, replace: true, cue: "back" });
       },
-
       current() {
         if (activeExternal) return activeExternal;
         return typeof baseRouter.current === "function" ? baseRouter.current() : "command";
       },
-
       register(name, element) {
         const route = routeName(name);
         const host = sceneHost();
@@ -266,10 +248,16 @@
     return true;
   }
 
+  let initializationWatchdog = 0;
+
   function activateInitialLaunchScene() {
     if (initialSceneActivated || !routedRouter) return;
     initialSceneActivated = true;
     showExternalScene(LAUNCH_ROUTE, { push: false, replace: true });
+    if (initializationWatchdog) {
+      clearTimeout(initializationWatchdog);
+      initializationWatchdog = 0;
+    }
     requestAnimationFrame(() => {
       document.documentElement.classList.remove("monolith-scene-initializing");
       document.documentElement.classList.add("monolith-scene-mounted");
@@ -302,7 +290,6 @@
     loadStyle("monolith-final-ui-css", "file:///android_asset/monolith_final_ui.css");
     loadStyle("monolith-landscape-gen2-css", "file:///android_asset/monolith_landscape_gen2.css");
     loadScript("monolith-final-ui-js", "file:///android_asset/monolith_final_ui.js");
-
     if (window.JaneSceneRouter) {
       finishDeck();
       return;
@@ -325,7 +312,8 @@
   `;
   document.head.appendChild(style);
 
-  const initializationWatchdog = window.setTimeout(() => {
+  initializationWatchdog = window.setTimeout(() => {
+    initializationWatchdog = 0;
     document.documentElement.classList.remove("monolith-scene-initializing");
   }, 2200);
 
@@ -340,9 +328,7 @@
       window.MonolithFinalUi?.refresh?.();
       return true;
     },
-    routeFor(name) {
-      return routeName(name);
-    },
+    routeFor(name) { return routeName(name); },
     sceneFor(name) {
       const route = routeName(name);
       return externalScenes.get(route) || (route === LAUNCH_ROUTE ? buildLaunchScene() : ensureExternalScene(route));
@@ -358,13 +344,9 @@
   };
 
   function boot() {
-    clearTimeout(initializationWatchdog);
     ensureCommandDeck();
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot, { once: true });
-  } else {
-    boot();
-  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
 })();
