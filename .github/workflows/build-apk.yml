@@ -3,10 +3,6 @@ run-name: "Beta 1.0.01 APK · run #${{ github.run_number }}"
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths:
-      - .github/beta-apk-build
 
 permissions:
   contents: read
