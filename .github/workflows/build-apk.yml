@@ -1,5 +1,5 @@
 name: Monolith AI APK — Beta Builds
-run-name: "Monolith AI Beta 2.0.01 · run #${{ github.run_number }}"
+run-name: "Monolith AI Beta 2.0.01"
 
 on:
   workflow_dispatch:
