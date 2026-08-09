@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "MONOLITH-SCENE-3";
+  const VERSION = "MONOLITH-SCENE-4";
   const LAUNCH_ROUTE = "monolith-launch";
   const MODULE_ROUTES = Object.freeze({
     model: "monolith-model",
@@ -25,12 +25,23 @@
   const externalScenes = new Map();
 
   function loadStyle(id, href) {
-    if (document.getElementById(id)) return;
+    const existing = document.getElementById(id);
+    if (existing) return existing;
     const link = document.createElement("link");
     link.id = id;
     link.rel = "stylesheet";
     link.href = href;
+    link.dataset.monolithLoadState = "loading";
+    link.addEventListener("load", () => {
+      link.dataset.monolithLoadState = "loaded";
+      document.documentElement.dataset.monolithLastStyleLoaded = id;
+    }, { once: true });
+    link.addEventListener("error", () => {
+      link.dataset.monolithLoadState = "error";
+      document.documentElement.dataset.monolithLoadError = id;
+    }, { once: true });
     document.head.appendChild(link);
+    return link;
   }
 
   function loadScript(id, src, onload) {
@@ -42,7 +53,15 @@
     const script = document.createElement("script");
     script.id = id;
     script.src = src;
-    if (onload) script.addEventListener("load", onload, { once: true });
+    script.dataset.monolithLoadState = "loading";
+    script.addEventListener("load", () => {
+      script.dataset.monolithLoadState = "loaded";
+      if (onload) onload();
+    }, { once: true });
+    script.addEventListener("error", () => {
+      script.dataset.monolithLoadState = "error";
+      document.documentElement.dataset.monolithLoadError = id;
+    }, { once: true });
     document.head.appendChild(script);
   }
 
@@ -179,6 +198,7 @@
 
     activeExternal = route;
     document.body.dataset.janeScene = route;
+    document.documentElement.dataset.monolithSceneCandidate = route;
     window.dispatchEvent(new CustomEvent("jane-scene-change", { detail: { scene: route } }));
 
     const opts = options || {};
@@ -252,16 +272,17 @@
 
   function activateInitialLaunchScene() {
     if (initialSceneActivated || !routedRouter) return;
+    const shown = showExternalScene(LAUNCH_ROUTE, { push: false, replace: true });
+    if (!shown) return;
     initialSceneActivated = true;
-    showExternalScene(LAUNCH_ROUTE, { push: false, replace: true });
     if (initializationWatchdog) {
       clearTimeout(initializationWatchdog);
       initializationWatchdog = 0;
     }
-    requestAnimationFrame(() => {
-      document.documentElement.classList.remove("monolith-scene-initializing");
-      document.documentElement.classList.add("monolith-scene-mounted");
-    });
+
+    document.documentElement.classList.remove("monolith-scene-initializing");
+    document.documentElement.classList.add("monolith-scene-mounted");
+    document.documentElement.dataset.monolithSceneMounted = LAUNCH_ROUTE;
   }
 
   function finishDeck() {
@@ -301,13 +322,22 @@
   style.id = "monolith-scene-runtime-css";
   style.textContent = `
     #ownerGate,#janeVitalsHUD,.jane-vitals-column,.jane-vital-card,.vital-card{display:none!important}
-    html.monolith-scene-initializing #janeSceneHost{opacity:0!important;visibility:hidden!important}
     #janeSceneHost{isolation:isolate!important}
     #janeSceneHost>[data-jane-scene]{pointer-events:none!important;visibility:hidden!important;opacity:0!important}
     #janeSceneHost>[data-jane-scene][data-jane-active="true"]{pointer-events:auto!important;visibility:visible!important;opacity:1!important}
     .monolith-scene-root{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;overflow:hidden!important;background:#01050a!important}
     .monolith-scene-root[data-jane-active="false"]{display:none!important}
     .monolith-scene-root[data-jane-active="true"]{display:block!important}
+    .monolith-launch-scene{color:#e8ffff!important;background:linear-gradient(145deg,#01050a,#020b12 48%,#010409)!important}
+    .monolith-launch-scene .dedmon-launch-shell{position:absolute!important;inset:12px 16px!important;display:grid!important;grid-template-columns:minmax(68px,12%) minmax(0,1fr) minmax(88px,14%)!important;gap:10px!important;align-items:stretch!important}
+    .monolith-launch-scene .dedmon-launch-core{display:grid!important;place-items:center!important;align-content:center!important;min-width:0!important;min-height:0!important;padding:14px!important;border:1px solid rgba(84,255,240,.28)!important;background:#06131c!important;color:#e8ffff!important;text-align:center!important}
+    .monolith-launch-scene .dedmon-launch-rail{display:grid!important;place-content:center!important;min-width:0!important;border:1px solid rgba(84,255,240,.20)!important;background:#041018!important;color:#78a5ad!important;padding:8px!important}
+    .monolith-launch-scene .dedmon-launch-core h1{display:block!important;margin:8px 0!important;color:#e8ffff!important;font:900 clamp(24px,3.2vw,48px)/1 system-ui,sans-serif!important}
+    .monolith-launch-scene .dedmon-launch-core p{display:block!important;margin:6px 0 10px!important;color:#bdd6da!important;font:600 clamp(12px,1.2vw,18px)/1.35 system-ui,sans-serif!important}
+    .monolith-launch-scene .dedmon-crest-bay{display:grid!important;place-items:center!important;width:min(28vh,220px)!important;height:min(28vh,220px)!important}
+    .monolith-launch-scene .dedmon-crest{display:block!important;max-width:72%!important;max-height:72%!important;object-fit:contain!important}
+    .monolith-launch-scene #monolithEnterButton{display:grid!important;place-items:center!important;min-width:92px!important;min-height:58px!important;color:#fff!important;border:1px solid #54fff0!important;background:#07333a!important}
+    .monolith-launch-scene .dedmon-launch-status{display:flex!important;gap:12px!important;margin-top:10px!important;color:#78a5ad!important}
     #monolithModuleOverlay{display:none!important;pointer-events:none!important}
   `;
   document.head.appendChild(style);
@@ -315,6 +345,7 @@
   initializationWatchdog = window.setTimeout(() => {
     initializationWatchdog = 0;
     document.documentElement.classList.remove("monolith-scene-initializing");
+    document.documentElement.dataset.monolithInitializationWatchdog = "released";
   }, 2200);
 
   window.MonolithSceneRuntime = {
