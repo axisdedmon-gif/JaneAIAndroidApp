@@ -20,8 +20,6 @@
   let finishing = false;
   const externalScenes = new Map();
 
-  const $ = (selector, root = document) => root.querySelector(selector);
-
   function loadStyle(id, href) {
     if (document.getElementById(id)) return;
     const link = document.createElement("link");
@@ -44,13 +42,17 @@
     document.head.appendChild(script);
   }
 
+  function commandDeckInitialized() {
+    return Boolean(window.JaneSceneRouter || document.body.classList.contains("jane-deck-ready"));
+  }
+
   function purgeLegacyLayers() {
-    document.getElementById("ownerGate")?.remove();
+    // #ownerGate is a hidden compatibility anchor required only while jane_command_deck.js
+    // builds its initial scene graph. Delete it permanently after that graph exists.
+    if (commandDeckInitialized()) document.getElementById("ownerGate")?.remove();
     document.getElementById("janeVitalsHUD")?.remove();
     document.querySelectorAll(".jane-vitals-column,.jane-vital-card,.vital-card").forEach(node => node.remove());
-
-    const staleOverlay = document.getElementById("monolithModuleOverlay");
-    if (staleOverlay) staleOverlay.remove();
+    document.getElementById("monolithModuleOverlay")?.remove();
   }
 
   function sceneHost() {
@@ -81,8 +83,7 @@
   }
 
   function ensureExternalScenes() {
-    const host = sceneHost();
-    if (!host) return false;
+    if (!sceneHost()) return false;
     Object.values(MODULE_ROUTES).forEach(ensureExternalScene);
     return true;
   }
@@ -183,6 +184,7 @@
     };
 
     window.JaneSceneRouter = routedRouter;
+    purgeLegacyLayers();
     return true;
   }
 
@@ -190,7 +192,6 @@
     if (finishing) return;
     finishing = true;
     try {
-      purgeLegacyLayers();
       if (!window.JaneSceneRouter) {
         finishing = false;
         setTimeout(finishDeck, 40);
@@ -198,6 +199,7 @@
       }
       installRouter();
       ensureExternalScenes();
+      purgeLegacyLayers();
       window.MonolithCore?.refresh?.();
       window.JaneQolHud?.refresh?.();
       window.MonolithFinalUi?.refresh?.();
@@ -207,7 +209,6 @@
   }
 
   function ensureCommandDeck() {
-    purgeLegacyLayers();
     loadStyle("jane-command-deck-css", "file:///android_asset/jane_command_deck.css");
     loadStyle("monolith-final-ui-css", "file:///android_asset/monolith_final_ui.css");
     loadScript("monolith-final-ui-js", "file:///android_asset/monolith_final_ui.js");
