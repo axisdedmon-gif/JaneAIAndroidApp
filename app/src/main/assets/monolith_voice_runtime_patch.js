@@ -17,6 +17,9 @@
 
   function apply(){
     ensureSceneRuntime();
+    if(document.querySelector("#janeMenuPanel .deck-menu-list")&&!document.getElementById("monolithNavModel")){
+      window.MonolithCore?.refresh?.();
+    }
     const overlay=document.getElementById("monolithModuleOverlay");
     if(!overlay||overlay.hidden)return;
     const voicePanel=overlay.querySelector(".monolith-voice-grid");
