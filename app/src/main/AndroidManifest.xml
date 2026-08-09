@@ -68,11 +68,18 @@
         </activity>
 
         <activity
-            android:name="ai.monolith.app.legacy.HudMainActivity"
+            android:name="ai.monolith.app.MonolithSafeBaseActivity"
             android:exported="false"
             android:process=":safe"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
+
+        <!-- Compatibility component name used by the existing BIOS launcher. It now resolves to
+             the native Safe Base activity and can no longer instantiate the legacy WebView HUD. -->
+        <activity-alias
+            android:name="ai.monolith.app.legacy.HudMainActivity"
+            android:targetActivity="ai.monolith.app.MonolithSafeBaseActivity"
+            android:exported="false" />
 
         <service
             android:name="ai.monolith.app.assistant.MonolithVoiceInteractionService"
