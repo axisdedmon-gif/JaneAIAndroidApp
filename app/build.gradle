@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -22,8 +23,8 @@ android {
         applicationId = "ai.monolith.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 200001
-        versionName = "Beta 2.0.01"
+        versionCode = 200002
+        versionName = "Beta 2.0.02"
     }
 
     buildTypes {
@@ -35,6 +36,7 @@ android {
 
 
 dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.google.mediapipe:tasks-genai:0.10.27")
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
