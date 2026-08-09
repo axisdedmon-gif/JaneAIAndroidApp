@@ -11,12 +11,11 @@ import java.io.StringWriter;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Small process-level crash guard for Monolith startup.
+ * Process-level startup guard for Monolith Core.
  *
- * It records Java crashes and detects a launch that died before being marked stable. The guard
- * never suppresses Android's normal crash handling; it records diagnostics and delegates to the
- * previously installed handler. A subsequent launch can use the returned safe-mode signal to
- * avoid optional module initialization while keeping the proven base UI available.
+ * It records Java crashes and detects launches that die before the stable checkpoint. Persisted
+ * startup state is owned here so the BIOS can atomically clear both the visible diagnostic and the
+ * hidden safe-mode/booting flags before an operator-requested retry.
  */
 public final class MonolithCrashGuard {
     private static final String PREFS = "monolith.crash_guard";
@@ -74,6 +73,25 @@ public final class MonolithCrashGuard {
             .putBoolean(KEY_SAFE_MODE, false)
             .putInt(KEY_CRASH_COUNT, 0)
             .apply();
+    }
+
+    /**
+     * Operator-requested recovery reset. This is intentionally stronger than markStable(): it
+     * clears every persisted launch/crash-loop flag so a BIOS retry can never inherit stale
+     * safe-mode state from an earlier Core attempt.
+     */
+    public static void clearStartupState(Context context) {
+        if (context == null) return;
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_BOOTING, false)
+            .putBoolean(KEY_SAFE_MODE, false)
+            .putLong(KEY_LAUNCH_WALL, 0L)
+            .putLong(KEY_LAUNCH_ELAPSED, 0L)
+            .putLong(KEY_LAST_CRASH_WALL, 0L)
+            .putString(KEY_LAST_CRASH, "")
+            .putInt(KEY_CRASH_COUNT, 0)
+            .commit();
     }
 
     public static void recordStartupFailure(Context context, Throwable error) {
