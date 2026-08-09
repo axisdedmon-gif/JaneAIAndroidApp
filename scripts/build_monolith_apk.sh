@@ -27,6 +27,8 @@ EXPECTED_VERSION_NAME="Beta ${BETA_VERSION}"
 DIST_DIR="$ROOT/dist"
 FINAL_APK="$DIST_DIR/MonolithAI-Beta-${BETA_VERSION}.apk"
 SIGNING_FILE="$ROOT/app/monolith-update-key.jks"
+SIGNING_COMMIT="fbad016ea0d1ceaee341d39d6969484568f8e1dd"
+SIGNING_REPO_PATH="signing/jane-update-key.b64"
 
 mkdir -p "$MODEL_DIR" "$DIST_DIR" "$SHERPA_DIR" "$TTS_ASSET_ROOT"
 rm -f "$MODEL_FILE" "$FINAL_APK" "$SIGNING_FILE" "$SHERPA_AAR" "$ESPEAK_ARCHIVE"
@@ -94,27 +96,31 @@ test "$(find "$ESPEAK_ASSET_DIR" -type f | wc -l)" -gt 20
 # Compile native source before the 500+ MB LLM transfer so Java/JNI API mistakes fail cheaply.
 gradle :app:compileDebugJavaWithJavac --stacktrace
 
-curl --fail --location --retry 4 --retry-all-errors --connect-timeout 30 --max-time 1800 "$MODEL_URL" --output "$MODEL_FILE"
-test "$(stat -c%s "$MODEL_FILE")" = "$MODEL_BYTES"
-echo "$MODEL_SHA  $MODEL_FILE" | sha256sum -c -
-
 export MONOLITH_VERSION_CODE="$EXPECTED_VERSION_CODE"
 export MONOLITH_VERSION_NAME="$EXPECTED_VERSION_NAME"
 export MONOLITH_KEYSTORE_PASSWORD="JaneUpdate2026"
 export MONOLITH_KEY_ALIAS="janeupdate"
 
-# The package identity is new, while the existing stable certificate is retained as a deterministic signing anchor.
-curl -fsSL \
-  https://raw.githubusercontent.com/axisdedmon-gif/JaneAIAndroidApp/fbad016ea0d1ceaee341d39d6969484568f8e1dd/signing/jane-update-key.b64 \
-  | tr -d '\r\n' | base64 -d > "$SIGNING_FILE"
+# Recover the already-established update key from immutable repository history through Git.
+# This avoids dependence on raw.githubusercontent.com and verifies signing before the large model transfer.
+git fetch --no-tags --depth=1 origin "$SIGNING_COMMIT"
+git cat-file -e "$SIGNING_COMMIT:$SIGNING_REPO_PATH"
+git show "$SIGNING_COMMIT:$SIGNING_REPO_PATH" | tr -d '\r\n' | base64 -d > "$SIGNING_FILE"
+test "$(stat -c%s "$SIGNING_FILE")" -gt 1000
+keytool -list -v -keystore "$SIGNING_FILE" -storepass "$MONOLITH_KEYSTORE_PASSWORD" -alias "$MONOLITH_KEY_ALIAS" \
+  | tr '[:upper:]' '[:lower:]' | tr -d ':' > /tmp/monolith-keytool.txt
+grep -Fq "$EXPECTED_CERT_SHA256" /tmp/monolith-keytool.txt
 
-keytool -list -keystore "$SIGNING_FILE" -storepass "$MONOLITH_KEYSTORE_PASSWORD" -alias "$MONOLITH_KEY_ALIAS" >/dev/null
 python3 scripts/configure_monolith_signing.py
-
 grep -q "applicationId = \"$EXPECTED_APP_ID\"" app/build.gradle
 grep -q "versionCode = $EXPECTED_VERSION_CODE" app/build.gradle
 grep -q "versionName = \"$EXPECTED_VERSION_NAME\"" app/build.gradle
 grep -q 'signingConfig signingConfigs.monolithStable' app/build.gradle
+
+# Only after source and signing preflight pass do we fetch the bundled offline LLM.
+curl --fail --location --retry 4 --retry-all-errors --connect-timeout 30 --max-time 1800 "$MODEL_URL" --output "$MODEL_FILE"
+test "$(stat -c%s "$MODEL_FILE")" = "$MODEL_BYTES"
+echo "$MODEL_SHA  $MODEL_FILE" | sha256sum -c -
 
 gradle :app:assembleDebug --stacktrace
 
