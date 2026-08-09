@@ -47,16 +47,23 @@ for route in ("monolith-launch", "monolith-model", "monolith-voice", "monolith-r
         raise SystemExit(f"Exclusive scene runtime is missing route: {route}")
 
 for token in (
-    "MONOLITH-SCENE-3",
+    "MONOLITH-SCENE-4",
     "__monolithExclusiveRouter",
     "buildLaunchScene()",
     'sceneFor(name)',
     'house_dedmon_crest.webp',
     'House Dedmon Access',
     'monolithEnterButton',
+    'document.documentElement.classList.remove("monolith-scene-initializing");',
+    '.monolith-launch-scene .dedmon-launch-shell',
+    'dataset.monolithLoadState = "loaded"',
 ):
     if token not in scene_runtime:
-        raise SystemExit(f"Scene runtime generation-2 token is missing: {token}")
+        raise SystemExit(f"Scene runtime visible-startup token is missing: {token}")
+
+raf_deadlock = '''requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'''
+if raf_deadlock in scene_runtime:
+    raise SystemExit("Launch visibility still depends on requestAnimationFrame while the native WebView starts hidden.")
 
 # Critical host contract: packaging a scene runtime is not enough. Android must inject it before
 # the Monolith module/voice layers, and the launch cannot be marked stable until a scene is mounted.
@@ -150,8 +157,6 @@ for activity in (
     "ai.monolith.app.MonolithActivity",
     "ai.monolith.app.MonolithSafeBaseActivity",
 ):
-    # Require a real <activity ...> tag. `\b` is insufficient because it also matches the
-    # word-boundary before the hyphen in <activity-alias>.
     pattern = re.compile(
         rf'<activity(?=\s)(?=[^>]*android:name="{re.escape(activity)}")(?=[^>]*android:screenOrientation="sensorLandscape")[^>]*>',
         re.DOTALL,
@@ -188,6 +193,6 @@ for xml_path in (
 
 print(
     "Final Monolith architecture validated: Android injects the scene runtime before modules, "
-    "launch stability requires a mounted scene, House Dedmon owns a dedicated landscape scene, "
-    "and Safe Base is a native WebView-disabled recovery console."
+    "House Dedmon releases native-hidden startup synchronously with critical inline visibility CSS, "
+    "launch stability requires a mounted exclusive scene, and Safe Base is native/WebView-disabled."
 )
