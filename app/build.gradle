@@ -12,6 +12,7 @@ android {
             keyPassword "JaneUpdate2026"
         }
     }
+
     androidResources {
         noCompress += ["task", "onnx"]
     }
@@ -27,6 +28,11 @@ android {
         versionName = "Beta 2.0.02"
     }
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
     buildTypes {
         debug {
             signingConfig signingConfigs.monolithStable
@@ -34,6 +40,11 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
