@@ -41,7 +41,24 @@ jobs:
           test "$(gradle --version | sed -n 's/^Gradle //p' | head -n 1)" = "8.7"
 
       - name: Build and validate Monolith AI Beta 2.0.04 APK
-        run: bash scripts/build_monolith_apk.sh
+        run: |
+          python3 scripts/strip_legacy_scene_overlays.py
+          node --check app/src/main/assets/monolith_scene_runtime.js
+          node --check app/src/main/assets/monolith_voice_runtime_patch.js
+          grep -q 'monolith_scene_runtime.js' app/src/main/assets/monolith_voice_runtime_patch.js
+          grep -q 'jane_command_deck.js' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolith-model' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolith-voice' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'monolith-rpg' app/src/main/assets/monolith_scene_runtime.js
+          if grep -q 'House Dedmon Access' app/src/main/assets/index.html; then
+            echo 'Legacy House Dedmon overlay survived scene cleanup.' >&2
+            exit 1
+          fi
+          if grep -q '"72 BPM"\|"98.6°F"' app/src/main/assets/index.html; then
+            echo 'Fake biometric telemetry survived scene cleanup.' >&2
+            exit 1
+          fi
+          bash scripts/build_monolith_apk.sh
 
       - name: Save Monolith AI Beta 2.0.04 APK artifact
         uses: actions/upload-artifact@v4
