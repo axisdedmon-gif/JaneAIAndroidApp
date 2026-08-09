@@ -3,14 +3,20 @@ package ai.monolith.app;
 import android.annotation.SuppressLint;
 import android.content.ClipData;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import android.widget.FrameLayout;
+import android.widget.TextView;
 
 import com.example.janeai.HudMainActivity;
 
@@ -30,16 +36,16 @@ import ai.monolith.app.runtime.MonolithCoroutineScope;
  * Monolith AI application shell. Jane is a character hosted by this application.
  *
  * The inherited legacy host still owns the durable WebView/RAG/voice infrastructure, but Monolith
- * now owns the scene bootstrap contract explicitly. The Android host injects the exclusive scene
+ * owns the scene bootstrap contract explicitly. The Android host injects the exclusive scene
  * runtime first, then the Monolith module runtime, then the voice patch. A launch is never marked
- * stable until the WebView proves that exactly one Monolith scene is mounted and visible.
+ * stable until House Dedmon Access has measurable, computed, foreground visibility.
  */
 public class MonolithActivity extends HudMainActivity {
     private static final int PICK_VOICE_ASSETS = 8802;
     private static final int EXPORT_VOICE_DATASET = 8803;
-    private static final long FIRST_SCENE_VERIFY_MS = 3000L;
-    private static final long RETRY_SCENE_VERIFY_MS = 900L;
-    private static final int MAX_SCENE_VERIFY_ATTEMPTS = 3;
+    private static final long FIRST_SCENE_VERIFY_MS = 2200L;
+    private static final long RETRY_SCENE_VERIFY_MS = 800L;
+    private static final int MAX_SCENE_VERIFY_ATTEMPTS = 5;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private VoiceModelStore voiceStore;
@@ -50,15 +56,51 @@ public class MonolithActivity extends HudMainActivity {
     private boolean safeMode;
     private boolean sceneMounted;
     private int sceneVerifyAttempts;
+    private TextView startupCurtain;
 
     /**
-     * Captures the inherited Activity content host through Android's normal setContentView contract.
-     * This removes MonolithActivity's former reflective access to MainActivity.webView.
+     * Capture the inherited WebView and place it behind a native startup curtain. MainActivity
+     * deliberately creates its WebView INVISIBLE; a native curtain lets us make Chromium visible
+     * immediately for layout/compositing without flashing the preserved legacy page underneath.
      */
     @Override
     public void setContentView(View view) {
-        super.setContentView(view);
-        if (view instanceof WebView) monolithWebView = (WebView) view;
+        if (!(view instanceof WebView)) {
+            super.setContentView(view);
+            return;
+        }
+
+        monolithWebView = (WebView) view;
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackgroundColor(Color.rgb(1, 5, 9));
+        frame.addView(
+            view,
+            new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        );
+
+        startupCurtain = new TextView(this);
+        startupCurtain.setGravity(Gravity.CENTER);
+        startupCurtain.setTextColor(Color.rgb(168, 255, 246));
+        startupCurtain.setBackgroundColor(Color.rgb(1, 5, 9));
+        startupCurtain.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        startupCurtain.setTextSize(13f);
+        startupCurtain.setLetterSpacing(0.05f);
+        startupCurtain.setPadding(36, 24, 36, 24);
+        startupCurtain.setText(
+            "MONOLITH CORE // MOUNTING SCENE\n\n" +
+            "HOUSE DEDMON ACCESS // VERIFYING VISIBILITY"
+        );
+        frame.addView(
+            startupCurtain,
+            new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        );
+        super.setContentView(frame);
     }
 
     @SuppressLint("AddJavascriptInterface")
@@ -67,7 +109,6 @@ public class MonolithActivity extends HudMainActivity {
         MonolithCrashGuard.install(this);
         safeMode = MonolithCrashGuard.beginLaunch(this);
 
-        // The legacy core owns the durable WebView and native bridges and must initialize first.
         super.onCreate(savedInstanceState);
 
         try {
@@ -85,8 +126,10 @@ public class MonolithActivity extends HudMainActivity {
             }
             monolithWebView.addJavascriptInterface(new MonolithBridge(), "AndroidMonolith");
 
-            // Even a crash-loop/safe launch must mount the Monolith scene router. Safe mode only
-            // defers optional subsystems; it must never fall back to an invisible/legacy root UI.
+            // Keep Chromium actively laying out behind the native curtain. This removes the
+            // hidden-View requestAnimationFrame/compositor deadlock seen on Samsung Android 16.
+            primeCoreSurface();
+
             if (safeMode) injectSafeModeIdentity();
             scheduleInjection();
             handler.postDelayed(this::verifySceneMount, FIRST_SCENE_VERIFY_MS);
@@ -146,6 +189,21 @@ public class MonolithActivity extends HudMainActivity {
         }
     }
 
+    private void primeCoreSurface() {
+        if (monolithWebView == null) return;
+        monolithWebView.animate().cancel();
+        monolithWebView.setAlpha(1f);
+        monolithWebView.setVisibility(View.VISIBLE);
+    }
+
+    private void updateStartupCurtain(String message) {
+        if (startupCurtain == null) return;
+        startupCurtain.setText(
+            "MONOLITH CORE // MOUNTING SCENE\n\n" +
+            (message == null ? "HOUSE DEDMON ACCESS // VERIFYING VISIBILITY" : message)
+        );
+    }
+
     private void scheduleInjection() {
         handler.postDelayed(this::injectMonolithLayer, 80L);
         handler.postDelayed(this::injectMonolithLayer, 420L);
@@ -167,10 +225,6 @@ public class MonolithActivity extends HudMainActivity {
         }, 350L);
     }
 
-    /**
-     * Loads the scene architecture in dependency order. The previous implementation injected only
-     * monolith_core.js and the voice patch, leaving monolith_scene_runtime.js packaged but unused.
-     */
     private void injectMonolithLayer() {
         if (monolithWebView == null || isFinishing()) return;
         final String script =
@@ -204,24 +258,39 @@ public class MonolithActivity extends HudMainActivity {
         }
     }
 
+    /**
+     * DOM existence is not a paint check. The previous probe accepted any active scene node, even
+     * when its host was still transparent/hidden. This probe forces computed style + geometry and
+     * checks that the launch scene owns the center of the viewport before Core becomes healthy.
+     */
     private void verifySceneMount() {
         if (sceneMounted || monolithWebView == null || isFinishing()) return;
         sceneVerifyAttempts++;
         final String probe =
             "(function(){" +
+            "var root=document.documentElement;" +
             "var host=document.getElementById('janeSceneHost');" +
             "var active=host&&host.querySelector(':scope > [data-jane-scene][data-jane-active=\"true\"]');" +
             "var launch=host&&host.querySelector(':scope > [data-jane-scene=\"monolith-launch\"]');" +
-            "return JSON.stringify({" +
-                "ready:!!(window.MonolithSceneRuntime&&window.JaneSceneRouter&&host&&active)," +
-                "sceneRuntime:!!window.MonolithSceneRuntime," +
-                "router:!!window.JaneSceneRouter," +
-                "host:!!host," +
-                "launch:!!launch," +
-                "active:active?active.getAttribute('data-jane-scene'):''," +
-                "loadError:document.documentElement.dataset.monolithLoadError||''," +
-                "bodyScene:document.body&&document.body.dataset?document.body.dataset.janeScene||'':''" +
-            "});" +
+            "var shell=launch&&launch.querySelector('.dedmon-launch-shell');" +
+            "var enter=launch&&launch.querySelector('#monolithEnterButton');" +
+            "var landscape=document.getElementById('monolith-landscape-gen2-css');" +
+            "var runtimeStyle=document.getElementById('monolith-scene-runtime-css');" +
+            "function snap(el,minW,minH){" +
+                "if(!el)return {ok:false,w:0,h:0,display:'missing',visibility:'missing',opacity:0};" +
+                "var cs=getComputedStyle(el);var r=el.getBoundingClientRect();var op=parseFloat(cs.opacity||'0');" +
+                "return {ok:cs.display!=='none'&&cs.visibility!=='hidden'&&op>.02&&r.width>=minW&&r.height>=minH,w:Math.round(r.width),h:Math.round(r.height),display:cs.display,visibility:cs.visibility,opacity:op};" +
+            "}" +
+            "var hs=snap(host,200,120);var as=snap(active,200,120);var ss=snap(shell,180,100);var es=snap(enter,40,32);" +
+            "var cx=Math.max(1,Math.floor(innerWidth/2));var cy=Math.max(1,Math.floor(innerHeight/2));" +
+            "var hit=document.elementFromPoint(cx,cy);var hitInLaunch=!!(hit&&launch&&launch.contains(hit));" +
+            "var initializing=!!root.classList.contains('monolith-scene-initializing');" +
+            "var textReady=!!(launch&&launch.textContent&&launch.textContent.indexOf('House Dedmon Access')>=0);" +
+            "var activeName=active?active.getAttribute('data-jane-scene'):'';" +
+            "var hostAria=host?host.getAttribute('aria-hidden'):'';" +
+            "var landscapeState=landscape?(landscape.dataset.monolithLoadState||(landscape.sheet?'sheet-ready':'linked')):'missing';" +
+            "var ready=!!(window.MonolithSceneRuntime&&window.JaneSceneRouter&&host&&launch&&active===launch&&activeName==='monolith-launch'&&hostAria!=='true'&&!initializing&&runtimeStyle&&textReady&&hs.ok&&as.ok&&ss.ok&&es.ok&&hitInLaunch);" +
+            "return JSON.stringify({ready:ready,sceneRuntime:!!window.MonolithSceneRuntime,router:!!window.JaneSceneRouter,host:!!host,launch:!!launch,active:activeName,hostAria:hostAria,initializing:initializing,runtimeStyle:!!runtimeStyle,landscape:landscapeState,hostStyle:hs,activeStyle:as,shellStyle:ss,enterStyle:es,hitInLaunch:hitInLaunch,hit:hit?(hit.id||hit.className||hit.tagName):'',textReady:textReady,loadError:root.dataset.monolithLoadError||'',sceneMountedMarker:root.dataset.monolithSceneMounted||'',bodyScene:document.body&&document.body.dataset?document.body.dataset.janeScene||'':''});" +
             "})();";
 
         try {
@@ -236,20 +305,24 @@ public class MonolithActivity extends HudMainActivity {
                     return;
                 }
 
+                String detail = status == null ? String.valueOf(value) : status.toString();
+                updateStartupCurtain(
+                    "HOUSE DEDMON ACCESS // VISIBILITY CHECK " + sceneVerifyAttempts + "/" + MAX_SCENE_VERIFY_ATTEMPTS
+                );
+
                 if (sceneVerifyAttempts < MAX_SCENE_VERIFY_ATTEMPTS) {
                     injectMonolithLayer();
                     handler.postDelayed(this::verifySceneMount, RETRY_SCENE_VERIFY_MS);
                     return;
                 }
 
-                String detail = status == null ? String.valueOf(value) : status.toString();
                 failCoreMount(
-                    "exclusive scene did not mount after " + sceneVerifyAttempts + " probes; state=" + detail,
+                    "exclusive scene did not become visibly painted after " + sceneVerifyAttempts + " probes; state=" + detail,
                     null
                 );
             });
         } catch (RuntimeException error) {
-            failCoreMount("scene-mount verification could not execute", error);
+            failCoreMount("scene-paint verification could not execute", error);
         }
     }
 
@@ -266,17 +339,18 @@ public class MonolithActivity extends HudMainActivity {
 
     private void revealCoreSurface() {
         if (monolithWebView == null) return;
-        monolithWebView.setVisibility(View.VISIBLE);
         monolithWebView.animate().cancel();
-        monolithWebView.setAlpha(0f);
-        monolithWebView.animate().alpha(1f).setDuration(140L).start();
+        monolithWebView.setVisibility(View.VISIBLE);
+        monolithWebView.setAlpha(1f);
+        if (startupCurtain != null) {
+            ViewGroup parent = startupCurtain.getParent() instanceof ViewGroup
+                ? (ViewGroup) startupCurtain.getParent()
+                : null;
+            if (parent != null) parent.removeView(startupCurtain);
+            startupCurtain = null;
+        }
     }
 
-    /**
-     * Startup mount failures are fail-fast by design. Throwing on the main thread routes the exact
-     * state payload through MonolithApplication's persisted BIOS diagnostic instead of leaving a
-     * stable-looking black screen that later gets incorrectly marked as healthy.
-     */
     private void failCoreMount(String message, Throwable cause) {
         if (isFinishing()) return;
         String detail = message == null ? "Monolith Core scene mount failed." : message;
@@ -490,6 +564,7 @@ public class MonolithActivity extends HudMainActivity {
                 out.put("startup", new JSONObject(MonolithCrashGuard.diagnosticJson(MonolithActivity.this)));
                 out.put("safeMode", safeMode);
                 out.put("sceneMounted", sceneMounted);
+                out.put("sceneVerifyAttempts", sceneVerifyAttempts);
                 out.put("launchMode", pendingMode);
                 return out.toString();
             } catch (Throwable error) {
