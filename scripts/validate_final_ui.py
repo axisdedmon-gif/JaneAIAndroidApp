@@ -150,18 +150,24 @@ for activity in (
     "ai.monolith.app.MonolithActivity",
     "ai.monolith.app.MonolithSafeBaseActivity",
 ):
+    # Require a real <activity ...> tag. `\b` is insufficient because it also matches the
+    # word-boundary before the hyphen in <activity-alias>.
     pattern = re.compile(
-        rf'<activity\b(?=[^>]*android:name="{re.escape(activity)}")(?=[^>]*android:screenOrientation="sensorLandscape")[^>]*>',
+        rf'<activity(?=\s)(?=[^>]*android:name="{re.escape(activity)}")(?=[^>]*android:screenOrientation="sensorLandscape")[^>]*>',
         re.DOTALL,
     )
     if not pattern.search(manifest):
         raise SystemExit(f"Landscape lock missing for activity: {activity}")
 
-if re.search(r'<activity\b[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity"', manifest, re.DOTALL):
+if re.search(
+    r'<activity(?=\s)[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity"',
+    manifest,
+    re.DOTALL,
+):
     raise SystemExit("Legacy HudMainActivity is still registered as a launchable Safe Base activity.")
 
 alias_pattern = re.compile(
-    r'<activity-alias\b(?=[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity")'
+    r'<activity-alias(?=\s)(?=[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity")'
     r'(?=[^>]*android:targetActivity="ai\.monolith\.app\.MonolithSafeBaseActivity")[^>]*/>',
     re.DOTALL,
 )
