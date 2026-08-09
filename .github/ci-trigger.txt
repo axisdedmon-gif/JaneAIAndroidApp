@@ -1,0 +1,2 @@
+Monolith AI controlled build trigger
+Purpose: emit one push event for the repaired visible-scene startup build.
