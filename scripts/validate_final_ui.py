@@ -25,6 +25,9 @@ required_files = [
     JAVA / "MonolithApplication.java",
     JAVA / "MonolithSafeBaseActivity.java",
     JAVA / "MonolithCrashGuard.java",
+    JAVA / "HouseDedmonAccessActivity.java",
+    JAVA / "MonolithEntryActivity.java",
+    JAVA / "MonolithCoreActivity.java",
 ]
 for path in required_files:
     if not path.is_file() or path.stat().st_size == 0:
@@ -43,7 +46,12 @@ activity_host = (JAVA / "MonolithActivity.java").read_text(encoding="utf-8")
 application = (JAVA / "MonolithApplication.java").read_text(encoding="utf-8")
 safe_base = (JAVA / "MonolithSafeBaseActivity.java").read_text(encoding="utf-8")
 crash_guard = (JAVA / "MonolithCrashGuard.java").read_text(encoding="utf-8")
+native_gate = (JAVA / "HouseDedmonAccessActivity.java").read_text(encoding="utf-8")
+entry_router = (JAVA / "MonolithEntryActivity.java").read_text(encoding="utf-8")
+core_activity = (JAVA / "MonolithCoreActivity.java").read_text(encoding="utf-8")
 
+# WebView still owns the exclusive in-app scene system, but House Dedmon Access is now a native
+# Android boundary and the WebView launch scene is fallback-only.
 for route in ("monolith-launch", "monolith-model", "monolith-voice", "monolith-rpg"):
     if route not in scene_runtime:
         raise SystemExit(f"Exclusive scene runtime is missing route: {route}")
@@ -53,19 +61,14 @@ for token in (
     "__monolithExclusiveRouter",
     "buildLaunchScene()",
     'sceneFor(name)',
-    'house_dedmon_crest.webp',
-    'House Dedmon Access',
-    'monolithEnterButton',
-    'document.documentElement.classList.remove("monolith-scene-initializing");',
-    '.monolith-launch-scene .dedmon-launch-shell',
     'dataset.monolithLoadState = "loaded"',
 ):
     if token not in scene_runtime:
-        raise SystemExit(f"Scene runtime visible-startup token is missing: {token}")
+        raise SystemExit(f"Scene runtime token is missing: {token}")
 
 raf_deadlock = '''requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'''
 if raf_deadlock in scene_runtime:
-    raise SystemExit("Launch visibility still depends on requestAnimationFrame while the native WebView starts hidden.")
+    raise SystemExit("WebView launch visibility still depends on requestAnimationFrame while native WebView starts hidden.")
 
 for token in (
     "monolith-scene-runtime-js",
@@ -82,8 +85,6 @@ for token in (
     "getComputedStyle",
     "getBoundingClientRect",
     "elementFromPoint",
-    "hitInLaunch",
-    "active===launch",
 ):
     if token not in activity_host:
         raise SystemExit(f"Android scene-paint contract is missing: {token}")
@@ -94,9 +95,6 @@ voice_loader_pos = activity_host.index("file:///android_asset/monolith_voice_run
 if not (scene_loader_pos < core_loader_pos < voice_loader_pos):
     raise SystemExit("Android host must load scene runtime before core modules and voice runtime.")
 
-if "if (safeMode) injectSafeModeIdentity();\n            else scheduleInjection();" in activity_host:
-    raise SystemExit("Safe-mode launch still bypasses the Monolith scene runtime.")
-
 for forbidden in ("ensureOverlay", "state.overlay", 'document.createElement("div");\n    overlay.id = "monolithModuleOverlay"'):
     if forbidden in core:
         raise SystemExit(f"Deprecated module-overlay architecture survived in monolith_core.js: {forbidden}")
@@ -105,8 +103,6 @@ if 'data-jane-scene="monolith-voice"' not in voice and 'sceneFor?.("voice")' not
     raise SystemExit("Voice runtime is not bound to the dedicated Voice scene.")
 
 for token in (
-    '.monolith-launch-scene',
-    '.dedmon-launch-shell',
     '#home[data-jane-scene="command"]',
     'grid-template-columns:minmax(200px,21%) minmax(540px,55%) minmax(225px,24%)',
     '#home #homeJaneModel',
@@ -114,7 +110,7 @@ for token in (
     '.jane-chat-grid',
 ):
     if token not in landscape_css:
-        raise SystemExit(f"Generation-2 landscape geometry token missing: {token}")
+        raise SystemExit(f"Landscape geometry token missing: {token}")
 
 for token in (
     ".monolith-model-grid",
@@ -128,28 +124,16 @@ for token in (
 for token in (
     "MONOLITH-FINAL-UI-3",
     "monolith_hardware_gen3.css",
-    "direct-handoff-v3",
-    "monolithActionWired",
-    'document.addEventListener("pointerup"',
-    'document.addEventListener("touchend"',
-    "enterButtonForEvent",
     "forceCommandScene",
-    "syncCommandRouter",
-    'scene.dataset.janeActive = active ? "true" : "false"',
-    'history.replaceState({ janeScene: "command", monolithDirectHandoff: true }',
-    'document.documentElement.dataset.monolithDirectHandoff',
     "auditExclusiveScene",
 ):
     if token not in final_js:
-        raise SystemExit(f"Generation-3 direct-handoff/runtime token missing: {token}")
+        raise SystemExit(f"WebView fallback/direct-handoff token missing: {token}")
 
 for token in (
     "--hw-brass",
     "repeating-conic-gradient",
     "mix-blend-mode:screen",
-    ".dedmon-crest-bay",
-    "width:min(68vh,560px)",
-    ".dedmon-reactor-button",
     ".telemetry-track",
     ".deck-nav-pod",
 ):
@@ -167,7 +151,36 @@ for forbidden in ('"72 BPM"', '"98.6°F"'):
 if 'id="ownerGate" class="hidden"' not in index:
     raise SystemExit("Hidden owner-gate compatibility anchor is missing from index.html.")
 if "House Dedmon Access" in index:
-    raise SystemExit("Legacy House Dedmon overlay survived in index.html instead of the dedicated launch scene.")
+    raise SystemExit("Legacy House Dedmon HTML overlay survived in index.html.")
+
+# Native House Dedmon gate contract. This is the user-facing launch screen now.
+for token in (
+    "public final class HouseDedmonAccessActivity extends Activity",
+    'getAssets().open("house_dedmon_crest.webp")',
+    "removeEdgeConnectedBlack",
+    'enter.setOnClickListener(v -> enterMonolith())',
+    'intent.putExtra("monolith_mode", "command")',
+    "EXTRA_NATIVE_ACCESS_GRANTED",
+    "HardwareBackdrop",
+    "HardwarePanelDrawable",
+    "ReactorButtonDrawable",
+    "DialView",
+):
+    if token not in native_gate:
+        raise SystemExit(f"Native House Dedmon gate contract is missing: {token}")
+
+for token in (
+    "public final class MonolithEntryActivity extends Activity",
+    "HouseDedmonAccessActivity.EXTRA_NATIVE_ACCESS_GRANTED",
+    "new Intent(this, HouseDedmonAccessActivity.class)",
+    "new Intent(this, MonolithCoreActivity.class)",
+    'core.putExtra("monolith_mode", granted ? "command" : mode)',
+):
+    if token not in entry_router:
+        raise SystemExit(f"Native Monolith entry-router contract is missing: {token}")
+
+if "public final class MonolithCoreActivity extends MonolithActivity" not in core_activity:
+    raise SystemExit("MonolithCoreActivity must remain a thin concrete manifest entry over the proven MonolithActivity implementation.")
 
 for token in ("WebView.disableWebView();", "disabled-safe-native"):
     if token not in application:
@@ -188,7 +201,9 @@ if "MonolithCrashGuard.clearStartupState(context)" not in application:
 
 for activity in (
     "ai.monolith.app.MonolithBootstrapActivity",
-    "ai.monolith.app.MonolithActivity",
+    "ai.monolith.app.HouseDedmonAccessActivity",
+    "ai.monolith.app.MonolithEntryActivity",
+    "ai.monolith.app.MonolithCoreActivity",
     "ai.monolith.app.MonolithSafeBaseActivity",
 ):
     pattern = re.compile(
@@ -198,15 +213,31 @@ for activity in (
     if not pattern.search(manifest):
         raise SystemExit(f"Landscape lock missing for activity: {activity}")
 
+core_pattern = re.compile(
+    r'<activity(?=\s)(?=[^>]*android:name="ai\.monolith\.app\.MonolithCoreActivity")'
+    r'(?=[^>]*android:process=":core")[^>]*>',
+    re.DOTALL,
+)
+if not core_pattern.search(manifest):
+    raise SystemExit("MonolithCoreActivity is not isolated in the :core process.")
+
+entry_alias = re.compile(
+    r'<activity-alias(?=\s)(?=[^>]*android:name="ai\.monolith\.app\.MonolithActivity")'
+    r'(?=[^>]*android:targetActivity="ai\.monolith\.app\.MonolithEntryActivity")[^>]*>',
+    re.DOTALL,
+)
+if not entry_alias.search(manifest):
+    raise SystemExit("Public MonolithActivity component does not route through MonolithEntryActivity.")
+
 if re.search(r'<activity(?=\s)[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity"', manifest, re.DOTALL):
     raise SystemExit("Legacy HudMainActivity is still registered as a launchable Safe Base activity.")
 
-alias_pattern = re.compile(
+safe_alias = re.compile(
     r'<activity-alias(?=\s)(?=[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity")'
     r'(?=[^>]*android:targetActivity="ai\.monolith\.app\.MonolithSafeBaseActivity")[^>]*/>',
     re.DOTALL,
 )
-if not alias_pattern.search(manifest):
+if not safe_alias.search(manifest):
     raise SystemExit("Safe Base compatibility alias does not target MonolithSafeBaseActivity.")
 
 if 'android:process=":safe"' not in manifest:
@@ -222,8 +253,8 @@ for xml_path in (
     ET.parse(xml_path)
 
 print(
-    "Final Monolith architecture validated: scene generation 4 releases hidden startup synchronously; "
-    "generation-3 UI uses a direct command-scene handoff with coordinate-aware touch capture before router sync; "
-    "the House Dedmon crest remains centerpiece scale; Android still requires computed geometry and foreground "
-    "hit-testing before Core becomes stable; Safe Base remains native and WebView-disabled."
+    "Final Monolith architecture validated: BIOS routes through a native House Dedmon gate with a real Android "
+    "ENTER control and edge-cleared crest; the public MonolithActivity component is now a compatibility alias "
+    "through MonolithEntryActivity; MonolithCoreActivity alone owns the :core WebView runtime; Safe Base remains "
+    "native and WebView-disabled; in-app scenes remain exclusive and landscape-owned."
 )
