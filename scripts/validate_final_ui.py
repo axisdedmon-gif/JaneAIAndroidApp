@@ -126,16 +126,22 @@ for token in (
         raise SystemExit(f"Secondary cybernetic layout token missing: {token}")
 
 for token in (
-    "MONOLITH-FINAL-UI-2",
+    "MONOLITH-FINAL-UI-3",
     "monolith_hardware_gen3.css",
-    "monolithInteractionBridge",
+    "direct-handoff-v3",
     "monolithActionWired",
     'document.addEventListener("pointerup"',
-    "enterMonolith",
+    'document.addEventListener("touchend"',
+    "enterButtonForEvent",
+    "forceCommandScene",
+    "syncCommandRouter",
+    'command.dataset.janeActive = active ? "true" : "false"',
+    'history.replaceState({ janeScene: "command", monolithDirectHandoff: true }',
+    'document.documentElement.dataset.monolithDirectHandoff',
     "auditExclusiveScene",
 ):
     if token not in final_js:
-        raise SystemExit(f"Generation-3 interaction/runtime token missing: {token}")
+        raise SystemExit(f"Generation-3 direct-handoff/runtime token missing: {token}")
 
 for token in (
     "--hw-brass",
@@ -217,7 +223,7 @@ for xml_path in (
 
 print(
     "Final Monolith architecture validated: scene generation 4 releases hidden startup synchronously; "
-    "generation-3 UI installs an idempotent touch interaction bridge and tactile mechanical hardware skin; "
-    "the House Dedmon crest is promoted to centerpiece scale; Android still requires computed geometry and "
-    "foreground hit-testing before Core becomes stable; Safe Base remains native and WebView-disabled."
+    "generation-3 UI uses a direct command-scene handoff with coordinate-aware touch capture before router sync; "
+    "the House Dedmon crest remains centerpiece scale; Android still requires computed geometry and foreground "
+    "hit-testing before Core becomes stable; Safe Base remains native and WebView-disabled."
 )
