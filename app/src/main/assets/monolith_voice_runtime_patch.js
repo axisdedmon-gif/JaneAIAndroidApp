@@ -1,11 +1,13 @@
 (function () {
   "use strict";
 
-  const VERSION = "MONOLITH-VOICE-PATCH-2";
+  const VERSION = "MONOLITH-VOICE-PATCH-3";
   if (window.MonolithVoiceRuntimePatch && window.MonolithVoiceRuntimePatch.version === VERSION) {
     window.MonolithVoiceRuntimePatch.apply();
     return;
   }
+
+  let launchModeBridgeInstalled = false;
 
   function ensureSceneRuntime() {
     if (window.MonolithSceneRuntime) {
@@ -17,6 +19,36 @@
     script.id = "monolith-scene-runtime-js";
     script.src = "file:///android_asset/monolith_scene_runtime.js";
     document.head.appendChild(script);
+  }
+
+  /**
+   * The Android native House Dedmon gate launches Core with monolith_mode=command. The historical
+   * Monolith core receiver did not handle that mode, so install one command-aware adapter while
+   * preserving every pre-existing search/assistant/voice/image launch behavior.
+   */
+  function installLaunchModeBridge() {
+    if (launchModeBridgeInstalled) return;
+    const previous = window.MonolithReceiveLaunchMode;
+    if (typeof previous !== "function") return;
+
+    const commandAware = function (mode) {
+      if (mode === "command") {
+        const openCommand = () => {
+          if (window.MonolithFinalUi?.forceCommandScene?.("native-house-dedmon")) return true;
+          if (window.MonolithSceneRuntime?.open) {
+            return window.MonolithSceneRuntime.open("command", { push: false, replace: true, cue: null });
+          }
+          return window.JaneSceneRouter?.open?.("command", { push: false, replace: true, cue: null }) || false;
+        };
+        if (!openCommand()) setTimeout(openCommand, 80);
+        return;
+      }
+      return previous(mode);
+    };
+    commandAware.__monolithCommandAware = true;
+    window.MonolithReceiveLaunchMode = commandAware;
+    launchModeBridgeInstalled = true;
+    document.documentElement.dataset.monolithCommandModeBridge = "native-gate-v1";
   }
 
   function parseState() {
@@ -34,6 +66,7 @@
 
   function apply() {
     ensureSceneRuntime();
+    installLaunchModeBridge();
 
     if (document.querySelector("#janeMenuPanel .deck-menu-list") && !document.getElementById("monolithNavModel")) {
       window.MonolithCore?.refresh?.();
@@ -100,7 +133,7 @@
   const observer = new MutationObserver(() => apply());
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
-  window.MonolithVoiceRuntimePatch = { version: VERSION, apply };
+  window.MonolithVoiceRuntimePatch = { version: VERSION, apply, installLaunchModeBridge };
   setInterval(apply, 1200);
   ensureSceneRuntime();
   apply();
