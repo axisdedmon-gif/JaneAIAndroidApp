@@ -1,26 +1,27 @@
 # Monolith AI Android
 
-Current release line: **Beta 2.0.01**.
-
-This repository contains the Android source tree for Monolith AI. Jane is the established female AI character hosted by the application; Monolith AI is the Android application, launcher, assistant-service, widget, archive, model, voice-workspace, and RPG platform identity.
+Monolith AI is the Android application, launcher, assistant-service, widget, archive, local model, voice-workspace, and RPG platform. Jane is the established female AI character hosted by Monolith AI.
 
 ## Current architecture
 
-- `ai.monolith.app.MonolithActivity` is the application shell and launcher.
-- The proven pre-Monolith core remains as an internal compatibility layer during the package migration.
+- `MonolithBootstrapActivity` is the deterministic native BIOS/startup boundary.
+- `HouseDedmonAccessActivity` is the native owner-access scene. It renders the House Dedmon crest from the bundled asset, removes only edge-connected black background pixels at runtime, and owns the real Android ENTER control.
+- The public `ai.monolith.app.MonolithActivity` component is a compatibility alias routed through `MonolithEntryActivity`.
+- `MonolithEntryActivity` sends normal owner launches through House Dedmon Access, while assistant/search/voice entry can route directly to Core.
+- `MonolithCoreActivity` is the concrete `:core` process activity and inherits the proven Monolith WebView/RAG/GLB implementation from `MonolithActivity`.
+- `MonolithSafeBaseActivity` is a native `:safe` recovery console with WebView disabled.
 - `MonolithVoiceInteractionService` and `MonolithVoiceSessionService` provide Android digital-assistant integration and explicit `AssistStructure` capture.
 - `MonolithAccessibilityService` provides opt-in, explicit window-context snapshots and does not continuously archive screen content.
 - Archives preserve originals locally, extract PDF/document/image text, and on Android 13+ can transcribe audio/video through the installed on-device speech recognizer.
 - `VoiceModelStore` records Piper-compatible WAV datasets plus `metadata.csv`, imports/exports dataset ZIPs, and preserves model targets under `Context.getExternalFilesDir("monolith_voice")`.
-- `PiperTtsEngine` uses sherpa-onnx v1.13.4 to run an activated converted Piper model fully locally. Systemic speech uses that model before the inherited hosted voice path.
-- `scripts/convert_piper_for_android.py` converts the standard Piper `.onnx + .onnx.json` export into the sherpa-compatible `.onnx + tokens.txt` pair used by the APK.
+- `PiperTtsEngine` uses sherpa-onnx to run activated converted Piper models locally.
 - The Monolith Model screen manages character selection, GLB rendering controls, and progression state.
-- The RPG screen provides a Starfinder 1e mechanics workspace, editable local character matrix, holographic dice, roll automation hooks, and DM encounter tools.
+- The RPG screen provides a Starfinder 1e mechanics workspace, editable local character matrix, dice tools, and DM encounter controls.
 
-## Build
+## Build and versioning
 
-The pinned Qwen2.5 on-device model and sherpa-onnx Android AAR are intentionally excluded from Git because they are large build payloads. The manual GitHub workflow calls `scripts/build_monolith_apk.sh`, which validates source/metadata first, downloads and verifies the pinned sherpa runtime, packages `espeak-ng-data`, compiles Java before transferring the large LLM, then downloads/verifies the LLM, signs, assembles, and validates the finished APK.
+GitHub Actions calculates Monolith SemVer from Conventional Commit subjects, injects the generated Android `versionName` / `versionCode`, validates native startup boundaries and exclusive scene architecture, compiles and signs the APK, then inspects the finished APK before publishing the artifact.
 
-The artifact for this release line is `MonolithAI-Beta-2.0.01-apk`, containing an APK named `MonolithAI-Beta-2.0.01-code<versionCode>.apk`.
+Structural generation commits use `feat(mono):` or `feat(ui):`. Runtime/UI repairs use `fix(mono):` or `fix(ui):`. CI-only and implementation staging commits use `chore(...)` so they do not accidentally advance a generation or patch counter.
 
-The GitHub Actions workflow remains `workflow_dispatch` only. Source commits do not automatically spend Actions minutes.
+Large build payloads such as the pinned offline language model and sherpa-onnx Android runtime are verified and supplied during CI instead of being stored as ordinary source files.
