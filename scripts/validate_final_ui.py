@@ -135,7 +135,7 @@ for token in (
     "enterButtonForEvent",
     "forceCommandScene",
     "syncCommandRouter",
-    'command.dataset.janeActive = active ? "true" : "false"',
+    'scene.dataset.janeActive = active ? "true" : "false"',
     'history.replaceState({ janeScene: "command", monolithDirectHandoff: true }',
     'document.documentElement.dataset.monolithDirectHandoff',
     "auditExclusiveScene",
