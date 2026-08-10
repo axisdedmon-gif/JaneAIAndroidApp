@@ -405,8 +405,20 @@ public final class HouseDedmonAccessActivity extends Activity {
         return params;
     }
 
+    /**
+     * The user-facing layout is percentage based; this helper only sizes hardware details. Scale
+     * those details down on narrow high-density landscape phones so fixed dials/bevels cannot
+     * overpower the weighted columns.
+     */
     private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
+        float density = getResources().getDisplayMetrics().density;
+        int screenWidthDp = getResources().getConfiguration().screenWidthDp;
+        float hardwareScale;
+        if (screenWidthDp <= 600) hardwareScale = 0.50f;
+        else if (screenWidthDp <= 800) hardwareScale = 0.62f;
+        else if (screenWidthDp <= 1000) hardwareScale = 0.78f;
+        else hardwareScale = 1.0f;
+        return Math.max(1, Math.round(value * density * hardwareScale));
     }
 
     private final class HardwareBackdrop extends View {
