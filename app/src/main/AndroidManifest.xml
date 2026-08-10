@@ -62,16 +62,30 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
 
         <activity
-            android:name="ai.monolith.app.MonolithActivity"
+            android:name="ai.monolith.app.MonolithEntryActivity"
             android:exported="true"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
+
+        <activity
+            android:name="ai.monolith.app.MonolithCoreActivity"
+            android:exported="false"
             android:process=":core"
             android:screenOrientation="sensorLandscape"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode">
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
+
+        <!-- Public compatibility component. Existing Java callers may continue targeting
+             ai.monolith.app.MonolithActivity, but Android routes the component through the native
+             entry activity instead of instantiating the WebView implementation directly. -->
+        <activity-alias
+            android:name="ai.monolith.app.MonolithActivity"
+            android:targetActivity="ai.monolith.app.MonolithEntryActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
                 <action android:name="android.intent.action.VOICE_COMMAND" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <activity
             android:name="ai.monolith.app.MonolithSafeBaseActivity"
