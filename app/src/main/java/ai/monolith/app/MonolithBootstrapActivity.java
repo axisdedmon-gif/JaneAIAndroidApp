@@ -393,8 +393,8 @@ public final class MonolithBootstrapActivity extends Activity {
         showControls(false);
         launchInFlight = true;
         try {
-            Intent intent = new Intent(this, MonolithActivity.class);
-            intent.putExtra("monolith_mode", "home");
+            Intent intent = new Intent(this, MonolithCoreActivity.class);
+            intent.putExtra("monolith_mode", "command");
             startActivity(intent);
         } catch (ActivityNotFoundException error) {
             launchInFlight = false;

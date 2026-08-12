@@ -22,8 +22,8 @@
   }
 
   /**
-   * The Android native House Dedmon gate launches Core with monolith_mode=command. The historical
-   * Monolith core receiver did not handle that mode, so install one command-aware adapter while
+   * The BIOS launches Core directly with monolith_mode=command. The historical Monolith core
+   * receiver did not handle that mode, so install one command-aware adapter while
    * preserving every pre-existing search/assistant/voice/image launch behavior.
    */
   function installLaunchModeBridge() {

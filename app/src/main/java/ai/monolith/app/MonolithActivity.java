@@ -3,20 +3,14 @@ package ai.monolith.app;
 import android.annotation.SuppressLint;
 import android.content.ClipData;
 import android.content.Intent;
-import android.graphics.Color;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
-import android.widget.FrameLayout;
-import android.widget.TextView;
 
 import com.example.janeai.HudMainActivity;
 
@@ -37,8 +31,8 @@ import ai.monolith.app.runtime.MonolithCoroutineScope;
  *
  * The inherited legacy host still owns the durable WebView/RAG/voice infrastructure, but Monolith
  * owns the scene bootstrap contract explicitly. The Android host injects the exclusive scene
- * runtime first, then the Monolith module runtime, then the voice patch. A launch is never marked
- * stable until House Dedmon Access has measurable, computed, foreground visibility.
+ * runtime first, then the Monolith module runtime, then the voice patch. A launch is marked stable
+ * only after the Command Chamber has measurable, computed, foreground visibility.
  */
 public class MonolithActivity extends HudMainActivity {
     private static final int PICK_VOICE_ASSETS = 8802;
@@ -56,46 +50,11 @@ public class MonolithActivity extends HudMainActivity {
     private boolean safeMode;
     private boolean sceneMounted;
     private int sceneVerifyAttempts;
-    private TextView startupCurtain;
 
     @Override
     public void setContentView(View view) {
-        if (!(view instanceof WebView)) {
-            super.setContentView(view);
-            return;
-        }
-
-        monolithWebView = (WebView) view;
-        FrameLayout frame = new FrameLayout(this);
-        frame.setBackgroundColor(Color.rgb(1, 5, 9));
-        frame.addView(
-            view,
-            new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        );
-
-        startupCurtain = new TextView(this);
-        startupCurtain.setGravity(Gravity.CENTER);
-        startupCurtain.setTextColor(Color.rgb(168, 255, 246));
-        startupCurtain.setBackgroundColor(Color.rgb(1, 5, 9));
-        startupCurtain.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        startupCurtain.setTextSize(13f);
-        startupCurtain.setLetterSpacing(0.05f);
-        startupCurtain.setPadding(36, 24, 36, 24);
-        startupCurtain.setText(
-            "MONOLITH CORE // MOUNTING SCENE\n\n" +
-            "HOUSE DEDMON ACCESS // VERIFYING VISIBILITY"
-        );
-        frame.addView(
-            startupCurtain,
-            new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        );
-        super.setContentView(frame);
+        if (view instanceof WebView) monolithWebView = (WebView) view;
+        super.setContentView(view);
     }
 
     @SuppressLint("AddJavascriptInterface")
@@ -186,14 +145,6 @@ public class MonolithActivity extends HudMainActivity {
         monolithWebView.setVisibility(View.VISIBLE);
     }
 
-    private void updateStartupCurtain(String message) {
-        if (startupCurtain == null) return;
-        startupCurtain.setText(
-            "MONOLITH CORE // MOUNTING SCENE\n\n" +
-            (message == null ? "HOUSE DEDMON ACCESS // VERIFYING VISIBILITY" : message)
-        );
-    }
-
     private void scheduleInjection() {
         handler.postDelayed(this::injectMonolithLayer, 80L);
         handler.postDelayed(this::injectMonolithLayer, 420L);
@@ -256,9 +207,8 @@ public class MonolithActivity extends HudMainActivity {
             "var root=document.documentElement;" +
             "var host=document.getElementById('janeSceneHost');" +
             "var active=host&&host.querySelector(':scope > [data-jane-scene][data-jane-active=\"true\"]');" +
-            "var launch=host&&host.querySelector(':scope > [data-jane-scene=\"monolith-launch\"]');" +
-            "var shell=launch&&launch.querySelector('.dedmon-launch-shell');" +
-            "var enter=launch&&launch.querySelector('#monolithEnterButton');" +
+            "var chamber=host&&host.querySelector(':scope > [data-jane-scene=\"command\"]');" +
+            "var shell=chamber&&chamber.querySelector('.deck-grid');" +
             "var landscape=document.getElementById('monolith-landscape-gen2-css');" +
             "var runtimeStyle=document.getElementById('monolith-scene-runtime-css');" +
             "function snap(el,minW,minH){" +
@@ -266,16 +216,15 @@ public class MonolithActivity extends HudMainActivity {
                 "var cs=getComputedStyle(el);var r=el.getBoundingClientRect();var op=parseFloat(cs.opacity||'0');" +
                 "return {ok:cs.display!=='none'&&cs.visibility!=='hidden'&&op>.02&&r.width>=minW&&r.height>=minH,w:Math.round(r.width),h:Math.round(r.height),display:cs.display,visibility:cs.visibility,opacity:op};" +
             "}" +
-            "var hs=snap(host,200,120);var as=snap(active,200,120);var ss=snap(shell,180,100);var es=snap(enter,40,32);" +
+            "var hs=snap(host,200,120);var as=snap(active,200,120);var ss=snap(shell,180,100);" +
             "var cx=Math.max(1,Math.floor(innerWidth/2));var cy=Math.max(1,Math.floor(innerHeight/2));" +
-            "var hit=document.elementFromPoint(cx,cy);var hitInLaunch=!!(hit&&launch&&launch.contains(hit));" +
+            "var hit=document.elementFromPoint(cx,cy);var hitInCommand=!!(hit&&chamber&&chamber.contains(hit));" +
             "var initializing=!!root.classList.contains('monolith-scene-initializing');" +
-            "var textReady=!!(launch&&launch.textContent&&launch.textContent.indexOf('House Dedmon Access')>=0);" +
             "var activeName=active?active.getAttribute('data-jane-scene'):'';" +
             "var hostAria=host?host.getAttribute('aria-hidden'):'';" +
             "var landscapeState=landscape?(landscape.dataset.monolithLoadState||(landscape.sheet?'sheet-ready':'linked')):'missing';" +
-            "var ready=!!(window.MonolithSceneRuntime&&window.JaneSceneRouter&&host&&launch&&active===launch&&activeName==='monolith-launch'&&hostAria!=='true'&&!initializing&&runtimeStyle&&textReady&&hs.ok&&as.ok&&ss.ok&&es.ok&&hitInLaunch);" +
-            "return JSON.stringify({ready:ready,sceneRuntime:!!window.MonolithSceneRuntime,router:!!window.JaneSceneRouter,host:!!host,launch:!!launch,active:activeName,hostAria:hostAria,initializing:initializing,runtimeStyle:!!runtimeStyle,landscape:landscapeState,hostStyle:hs,activeStyle:as,shellStyle:ss,enterStyle:es,hitInLaunch:hitInLaunch,hit:hit?(hit.id||hit.className||hit.tagName):'',textReady:textReady,loadError:root.dataset.monolithLoadError||'',sceneMountedMarker:root.dataset.monolithSceneMounted||'',bodyScene:document.body&&document.body.dataset?document.body.dataset.janeScene||'':''});" +
+            "var ready=!!(window.MonolithSceneRuntime&&window.JaneSceneRouter&&host&&chamber&&active===chamber&&activeName==='command'&&hostAria!=='true'&&!initializing&&runtimeStyle&&hs.ok&&as.ok&&ss.ok&&hitInCommand);" +
+            "return JSON.stringify({ready:ready,sceneRuntime:!!window.MonolithSceneRuntime,router:!!window.JaneSceneRouter,host:!!host,chamber:!!chamber,active:activeName,hostAria:hostAria,initializing:initializing,runtimeStyle:!!runtimeStyle,landscape:landscapeState,hostStyle:hs,activeStyle:as,shellStyle:ss,hitInCommand:hitInCommand,hit:hit?(hit.id||hit.className||hit.tagName):'',loadError:root.dataset.monolithLoadError||'',sceneMountedMarker:root.dataset.monolithSceneMounted||'',bodyScene:document.body&&document.body.dataset?document.body.dataset.janeScene||'':''});" +
             "})();";
 
         try {
@@ -291,16 +240,13 @@ public class MonolithActivity extends HudMainActivity {
                 }
 
                 String detail = status == null ? String.valueOf(value) : status.toString();
-                updateStartupCurtain(
-                    "HOUSE DEDMON ACCESS // VISIBILITY CHECK " + sceneVerifyAttempts + "/" + MAX_SCENE_VERIFY_ATTEMPTS
-                );
                 if (sceneVerifyAttempts < MAX_SCENE_VERIFY_ATTEMPTS) {
                     injectMonolithLayer();
                     handler.postDelayed(this::verifySceneMount, RETRY_SCENE_VERIFY_MS);
                     return;
                 }
                 failCoreMount(
-                    "exclusive scene did not become visibly painted after " + sceneVerifyAttempts + " probes; state=" + detail,
+                    "Command Chamber did not become visibly painted after " + sceneVerifyAttempts + " probes; state=" + detail,
                     null
                 );
             });
@@ -325,13 +271,6 @@ public class MonolithActivity extends HudMainActivity {
         monolithWebView.animate().cancel();
         monolithWebView.setVisibility(View.VISIBLE);
         monolithWebView.setAlpha(1f);
-        if (startupCurtain != null) {
-            ViewGroup parent = startupCurtain.getParent() instanceof ViewGroup
-                ? (ViewGroup) startupCurtain.getParent()
-                : null;
-            if (parent != null) parent.removeView(startupCurtain);
-            startupCurtain = null;
-        }
     }
 
     private void failCoreMount(String message, Throwable cause) {

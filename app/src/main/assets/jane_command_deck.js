@@ -19,13 +19,13 @@
   };
 
   const state = {
-    currentScene: "startup",
+    currentScene: "command",
     soundEnabled: localStorage.getItem("jane.interface.sound") !== "off",
     archiveMotionEnabled: localStorage.getItem("jane.interface.motion") !== "off",
     portraitVariant: "Kadi_c",
     portraitPose: "",
     greetingMode: false,
-    launching: false,
+    launching: true,
     sceneMap: {},
     telemetryTimer: 0,
     clockTimer: 0
@@ -86,7 +86,7 @@
   };
 
   const vfx = {
-    scene: "startup",
+    scene: "command",
 
     install() {
       const layer = document.createElement("div");
@@ -737,20 +737,6 @@
     captureRoute(document.getElementById("closeSettingsBtn"), () => navigateBack("command"));
     captureRoute(document.getElementById("privateBtn"), () => activateScene("settings"));
 
-    const launch = document.getElementById("launchJaneButton");
-    if (launch) {
-      launch.addEventListener("click", () => {
-        if (state.launching) return;
-        state.launching = true;
-        audio.ensure();
-        audio.cue("launch");
-        document.body.classList.add("jane-deck-launched");
-        const host = document.getElementById("janeSceneHost");
-        if (host) host.setAttribute("aria-hidden", "false");
-        setTimeout(() => activateScene("command", { push: false, replace: true, cue: null }), 90);
-      }, true);
-    }
-
     const usageButton = document.getElementById("janeUsageAccessButton");
     if (usageButton) usageButton.addEventListener("click", () => {
       audio.cue("confirm");
@@ -781,7 +767,6 @@
       const button = event.target.closest && event.target.closest("button");
       if (!button || button.disabled || button.closest("[aria-hidden='true']")) return;
       const dedicatedCueButtons = new Set([
-        "launchJaneButton",
         "janeUsageAccessButton",
         "janeSoundToggle",
         "janeMotionToggle",
@@ -819,12 +804,11 @@
     if (document.body.classList.contains("jane-deck-ready")) return;
     const home = document.getElementById("home");
     const chat = document.getElementById("vn");
-    const launch = document.getElementById("ownerGate");
     const archives = document.getElementById("janeKnowledgeBase");
     const meshy = document.getElementById("janeMeshyStudio");
     const music = document.getElementById("janeMusicStudio");
     const settings = document.getElementById("ownerModal");
-    if (!home || !chat || !launch || !archives || !meshy || !music || !settings) {
+    if (!home || !chat || !archives || !meshy || !music || !settings) {
       console.error("[Jane Command Deck] Required legacy scene missing.");
       return;
     }
@@ -864,23 +848,12 @@
     window.JaneDeviceVitalsError = message => console.warn("[Jane telemetry]", message);
     window.JaneSceneRouter = { open: activateScene, back: navigateBack, current: () => state.currentScene };
 
-    const launchVisible = !launch.classList.contains("hidden");
-    if (launchVisible) {
-      state.currentScene = "startup";
-      document.body.dataset.janeScene = "startup";
-      Object.values(state.sceneMap).forEach(element => {
-        element.dataset.janeActive = "false";
-        element.setAttribute("aria-hidden", "true");
-      });
-    } else {
-      state.launching = true;
-      document.body.classList.add("jane-deck-launched");
-      host.setAttribute("aria-hidden", "false");
-      activateScene("command", { push: false, replace: true, cue: null });
-    }
+    document.body.classList.add("jane-deck-launched", "monolith-owner-authorized");
+    host.setAttribute("aria-hidden", "false");
+    activateScene("command", { push: false, replace: true, cue: null });
 
     const reportReady = () => requestAnimationFrame(() => requestAnimationFrame(() => {
-      try { window.AndroidJane?.notifyInterfaceReady?.("launch-ready"); } catch (error) {}
+      try { window.AndroidJane?.notifyInterfaceReady?.("command-ready"); } catch (error) {}
     }));
     if (document.readyState === "complete") reportReady();
     else window.addEventListener("load", reportReady, { once: true });

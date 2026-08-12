@@ -11,32 +11,51 @@ if len(apks) != 1:
 
 apk = apks[0]
 required_assets = {
+    "assets/index.html",
+    "assets/jane_command_deck.js",
     "assets/monolith_scene_runtime.js",
     "assets/monolith_core.js",
     "assets/monolith_voice_runtime_patch.js",
     "assets/monolith_final_ui.css",
     "assets/monolith_final_ui.js",
     "assets/monolith_landscape_gen2.css",
-    "assets/house_dedmon_crest.webp",
+    "assets/monolith_hardware_gen3.css",
 }
+gate_tokens = (
+    "HouseDedmonAccessActivity",
+    "House Dedmon Access",
+    "HOUSE DEDMON ACCESS",
+    "ownerGate",
+    "launchJaneButton",
+    "monolith-launch",
+    "monolithEnterButton",
+    "dedmon-launch",
+    "startupCurtain",
+    "VERIFYING VISIBILITY",
+    "MOUNTING SCENE",
+)
 
 with zipfile.ZipFile(apk) as archive:
     names = set(archive.namelist())
     missing = required_assets - names
     if missing:
         raise SystemExit(f"Packaged APK is missing final UI assets: {sorted(missing)}")
-
     for asset in required_assets:
         if archive.getinfo(asset).file_size < 200:
             raise SystemExit(f"Packaged final UI asset is unexpectedly small: {asset}")
 
     index = archive.read("assets/index.html").decode("utf-8", errors="replace")
-    if "House Dedmon Access" in index:
-        raise SystemExit("Legacy House Dedmon overlay was packaged in index.html.")
     if '"72 BPM"' in index or '"98.6°F"' in index:
         raise SystemExit("Fake biometric values were packaged into the APK.")
-    if 'id="ownerGate" class="hidden"' not in index:
-        raise SystemExit("Hidden owner-gate compatibility anchor is missing from packaged index.html.")
+
+    command_deck = archive.read("assets/jane_command_deck.js").decode("utf-8", errors="replace")
+    for token in (
+        'currentScene: "command"',
+        'document.body.classList.add("jane-deck-launched", "monolith-owner-authorized")',
+        'notifyInterfaceReady?.("command-ready")',
+    ):
+        if token not in command_deck:
+            raise SystemExit(f"Packaged command deck is missing direct-start token: {token}")
 
     core = archive.read("assets/monolith_core.js").decode("utf-8", errors="replace")
     if "ensureOverlay" in core or "state.overlay" in core:
@@ -44,32 +63,36 @@ with zipfile.ZipFile(apk) as archive:
 
     runtime = archive.read("assets/monolith_scene_runtime.js").decode("utf-8", errors="replace")
     for token in (
-        "MONOLITH-SCENE-4",
-        "monolith-launch",
-        "House Dedmon Access",
-        "house_dedmon_crest.webp",
-        "monolithEnterButton",
+        "MONOLITH-SCENE-5",
         "__monolithExclusiveRouter",
-        'document.documentElement.classList.remove("monolith-scene-initializing");',
-        ".monolith-launch-scene .dedmon-launch-shell",
+        "activateInitialCommandScene()",
+        'dataset.monolithSceneMounted = "command"',
         'dataset.monolithLoadState = "loaded"',
     ):
         if token not in runtime:
-            raise SystemExit(f"Packaged scene runtime is missing visible-launch token: {token}")
-    raf_deadlock = '''requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'''
-    if raf_deadlock in runtime:
-        raise SystemExit("Packaged scene runtime still gates launch visibility on requestAnimationFrame.")
+            raise SystemExit(f"Packaged scene runtime is missing direct-command token: {token}")
+
+    final_js = archive.read("assets/monolith_final_ui.js").decode("utf-8", errors="replace")
+    if "MONOLITH-FINAL-UI-4" not in final_js or "forceCommandScene" not in final_js:
+        raise SystemExit("Packaged final UI is missing the direct Command Chamber fallback.")
 
     landscape = archive.read("assets/monolith_landscape_gen2.css").decode("utf-8", errors="replace")
-    for token in (
-        ".monolith-launch-scene",
-        ".dedmon-launch-shell",
-        '#home[data-jane-scene="command"]',
-        "55%",
-        '#vn[data-jane-scene="chat"]',
-    ):
+    for token in ('#home[data-jane-scene="command"]', "55%", '#vn[data-jane-scene="chat"]'):
         if token not in landscape:
             raise SystemExit(f"Generation-2 landscape geometry is missing from packaged CSS: {token}")
+
+    gate_surfaces = {
+        "index.html": index,
+        "jane_command_deck.js": command_deck,
+        "monolith_scene_runtime.js": runtime,
+        "monolith_final_ui.js": final_js,
+        "monolith_landscape_gen2.css": landscape,
+        "monolith_hardware_gen3.css": archive.read("assets/monolith_hardware_gen3.css").decode("utf-8", errors="replace"),
+    }
+    for surface_name, text in gate_surfaces.items():
+        for forbidden in gate_tokens:
+            if forbidden in text:
+                raise SystemExit(f"Removed verification-gate token was packaged in {surface_name}: {forbidden}")
 
     dex_names = sorted(name for name in names if name.endswith(".dex"))
     if not dex_names:
@@ -77,10 +100,10 @@ with zipfile.ZipFile(apk) as archive:
     dex_blob = b"\n".join(archive.read(name) for name in dex_names)
     for token in (
         b"monolith_scene_runtime.js",
-        b"visibly painted",
-        b"HOUSE DEDMON ACCESS // VERIFYING VISIBILITY",
+        b"Command Chamber did not become visibly painted",
         b"elementFromPoint",
-        b"hitInLaunch",
+        b"hitInCommand",
+        b"MonolithCoreActivity",
         b"MonolithSafeBaseActivity",
         b"NATIVE RECOVERY CONSOLE // NO WEBVIEW",
         b"disabled-safe-native",
@@ -88,9 +111,16 @@ with zipfile.ZipFile(apk) as archive:
     ):
         if token not in dex_blob:
             raise SystemExit(f"Compiled APK is missing runtime-host recovery token: {token.decode('utf-8')}")
+    for forbidden in (
+        b"HouseDedmonAccessActivity",
+        b"HOUSE DEDMON ACCESS // VERIFYING VISIBILITY",
+        b"startupCurtain",
+        b"hitInLaunch",
+    ):
+        if forbidden in dex_blob:
+            raise SystemExit(f"Removed verification-gate bytecode token survived: {forbidden.decode('utf-8')}")
 
 print(
-    f"Packaged Monolith runtime validated inside {apk.name}: scene generation 4 releases startup "
-    "visibility synchronously, Android compiled bytecode requires geometry/foreground paint evidence, "
-    "and Safe Base remains native/WebView-disabled."
+    f"Packaged Monolith runtime validated inside {apk.name}: scene generation 5 opens the Command "
+    "Chamber directly, Android requires its visible foreground paint, and Safe Base remains native/WebView-disabled."
 )

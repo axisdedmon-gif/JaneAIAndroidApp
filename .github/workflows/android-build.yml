@@ -64,47 +64,47 @@ jobs:
           node --check app/src/main/assets/monolith_voice_runtime_patch.js
           node --check app/src/main/assets/monolith_final_ui.js
 
-          grep -q 'MONOLITH-SCENE-4' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'MONOLITH-SCENE-5' app/src/main/assets/monolith_scene_runtime.js
           grep -q '__monolithExclusiveRouter' app/src/main/assets/monolith_scene_runtime.js
-          grep -q 'monolith-launch' app/src/main/assets/monolith_scene_runtime.js
-          grep -q 'House Dedmon Access' app/src/main/assets/monolith_scene_runtime.js
-          grep -q 'house_dedmon_crest.webp' app/src/main/assets/monolith_scene_runtime.js
-          grep -q 'monolithEnterButton' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'activateInitialCommandScene' app/src/main/assets/monolith_scene_runtime.js
+          grep -q 'baseRouter.open("command"' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolith_landscape_gen2.css' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolith-scene-initializing' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolithSceneMounted' app/src/main/assets/monolith_scene_runtime.js
           grep -q 'monolithLoadState' app/src/main/assets/monolith_scene_runtime.js
-          grep -q '.monolith-launch-scene .dedmon-launch-shell' app/src/main/assets/monolith_scene_runtime.js
-          python3 - <<'PYRAF'
-          from pathlib import Path
-          text = Path('app/src/main/assets/monolith_scene_runtime.js').read_text(encoding='utf-8')
-          deadlock = 'requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'
-          if deadlock in text:
-              raise SystemExit('Launch visibility still depends on requestAnimationFrame while native WebView starts hidden.')
-          PYRAF
+          grep -q 'currentScene: "command"' app/src/main/assets/jane_command_deck.js
+          grep -q 'command-ready' app/src/main/assets/jane_command_deck.js
           grep -q '#home\[data-jane-scene="command"\]' app/src/main/assets/monolith_landscape_gen2.css
-          grep -q '.dedmon-launch-shell' app/src/main/assets/monolith_landscape_gen2.css
 
           grep -q 'monolith-scene-runtime-js' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'file:///android_asset/monolith_scene_runtime.js' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'verifySceneMount()' app/src/main/java/ai/monolith/app/MonolithActivity.java
-          grep -q 'exclusive scene did not become visibly painted' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'Command Chamber did not become visibly painted' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'primeCoreSurface()' app/src/main/java/ai/monolith/app/MonolithActivity.java
-          grep -q 'startupCurtain' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'getComputedStyle' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'getBoundingClientRect' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'elementFromPoint' app/src/main/java/ai/monolith/app/MonolithActivity.java
-          grep -q 'hitInLaunch' app/src/main/java/ai/monolith/app/MonolithActivity.java
-          grep -q 'active===launch' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'hitInCommand' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'active===chamber' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'MonolithCrashGuard.markStable(MonolithActivity.this)' app/src/main/java/ai/monolith/app/MonolithActivity.java
+          grep -q 'new Intent(this, MonolithCoreActivity.class)' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+
+          if grep -Rq 'HouseDedmonAccessActivity\|House Dedmon Access\|HOUSE DEDMON ACCESS\|ownerGate\|monolith-launch\|monolithEnterButton\|startupCurtain\|VERIFYING VISIBILITY\|MOUNTING SCENE' \
+            app/src/main/AndroidManifest.xml \
+            app/src/main/assets/index.html \
+            app/src/main/assets/jane_command_deck.js \
+            app/src/main/assets/monolith_scene_runtime.js \
+            app/src/main/assets/monolith_final_ui.js \
+            app/src/main/java/ai/monolith/app/MonolithActivity.java \
+            app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java \
+            app/src/main/java/ai/monolith/app/MonolithEntryActivity.java; then
+            echo 'Removed access/verification gate survived in a launch surface.' >&2
+            exit 1
+          fi
 
           grep -q 'MONOLITH-CORE-2' app/src/main/assets/monolith_core.js
           if grep -q 'ensureOverlay\|state\.overlay' app/src/main/assets/monolith_core.js; then
             echo 'Deprecated module overlay architecture survived in monolith_core.js.' >&2
-            exit 1
-          fi
-          if grep -q 'House Dedmon Access' app/src/main/assets/index.html; then
-            echo 'Legacy House Dedmon overlay survived in index.html; dedicated launch scene must own access UI.' >&2
             exit 1
           fi
           if grep -q '"72 BPM"\|"98.6°F"' app/src/main/assets/index.html; then
@@ -125,9 +125,6 @@ jobs:
           grep -q 'CORE BOOT LOCKED // CLEAR DIAGNOSTIC FIRST' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
 
           test -s app/src/main/assets/monolith_landscape_gen2.css
-          test -s app/src/main/assets/house_dedmon_crest.webp
-          test -s app/src/main/res/drawable/scifi_hardware_frame.xml
-          test -s app/src/main/res/drawable/scifi_reactor_button.xml
 
       - name: Compile, Sign, Validate, and Package APK
         run: bash scripts/build_monolith_apk.sh
@@ -145,7 +142,7 @@ jobs:
             echo "- Monolith generation: \`${MONOLITH_GEN}\`"
             echo "- UI generation: \`${UI_GEN}\`"
             echo "- patch: \`${PATCH_GEN}\`"
-            echo '- launch flow: `BIOS -> native mounting curtain -> House Dedmon Access -> Command Chamber`'
+            echo '- launch flow: `BIOS -> Command Chamber`'
             echo '- Core readiness: `computed visibility + geometry + foreground hit-test`'
             echo '- Safe Base: `native recovery console / WebView disabled`'
             echo '- layout: `exclusive landscape scenes`'

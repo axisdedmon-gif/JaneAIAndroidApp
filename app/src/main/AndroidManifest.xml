@@ -56,12 +56,6 @@
         </activity>
 
         <activity
-            android:name="ai.monolith.app.HouseDedmonAccessActivity"
-            android:exported="false"
-            android:screenOrientation="sensorLandscape"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode" />
-
-        <activity
             android:name="ai.monolith.app.MonolithEntryActivity"
             android:exported="true"
             android:screenOrientation="sensorLandscape"

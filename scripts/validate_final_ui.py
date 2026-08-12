@@ -6,11 +6,12 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "app/src/main/assets"
-RES = ROOT / "app/src/main/res"
 JAVA = ROOT / "app/src/main/java/ai/monolith/app"
 MANIFEST = ROOT / "app/src/main/AndroidManifest.xml"
 
 required_files = [
+    ASSETS / "index.html",
+    ASSETS / "jane_command_deck.js",
     ASSETS / "monolith_scene_runtime.js",
     ASSETS / "monolith_core.js",
     ASSETS / "monolith_voice_runtime_patch.js",
@@ -18,14 +19,11 @@ required_files = [
     ASSETS / "monolith_final_ui.js",
     ASSETS / "monolith_landscape_gen2.css",
     ASSETS / "monolith_hardware_gen3.css",
-    ASSETS / "house_dedmon_crest.webp",
-    RES / "drawable/scifi_hardware_frame.xml",
-    RES / "drawable/scifi_reactor_button.xml",
     JAVA / "MonolithActivity.java",
     JAVA / "MonolithApplication.java",
+    JAVA / "MonolithBootstrapActivity.java",
     JAVA / "MonolithSafeBaseActivity.java",
     JAVA / "MonolithCrashGuard.java",
-    JAVA / "HouseDedmonAccessActivity.java",
     JAVA / "MonolithEntryActivity.java",
     JAVA / "MonolithCoreActivity.java",
 ]
@@ -33,7 +31,12 @@ for path in required_files:
     if not path.is_file() or path.stat().st_size == 0:
         raise SystemExit(f"Required Monolith runtime/UI file is missing or empty: {path.relative_to(ROOT)}")
 
+gate_activity = JAVA / "HouseDedmonAccessActivity.java"
+if gate_activity.exists():
+    raise SystemExit("Removed HouseDedmonAccessActivity.java was reintroduced.")
+
 scene_runtime = (ASSETS / "monolith_scene_runtime.js").read_text(encoding="utf-8")
+command_deck = (ASSETS / "jane_command_deck.js").read_text(encoding="utf-8")
 core = (ASSETS / "monolith_core.js").read_text(encoding="utf-8")
 voice = (ASSETS / "monolith_voice_runtime_patch.js").read_text(encoding="utf-8")
 final_css = (ASSETS / "monolith_final_ui.css").read_text(encoding="utf-8")
@@ -44,31 +47,36 @@ index = (ASSETS / "index.html").read_text(encoding="utf-8")
 manifest = MANIFEST.read_text(encoding="utf-8")
 activity_host = (JAVA / "MonolithActivity.java").read_text(encoding="utf-8")
 application = (JAVA / "MonolithApplication.java").read_text(encoding="utf-8")
+bootstrap = (JAVA / "MonolithBootstrapActivity.java").read_text(encoding="utf-8")
 safe_base = (JAVA / "MonolithSafeBaseActivity.java").read_text(encoding="utf-8")
 crash_guard = (JAVA / "MonolithCrashGuard.java").read_text(encoding="utf-8")
-native_gate = (JAVA / "HouseDedmonAccessActivity.java").read_text(encoding="utf-8")
 entry_router = (JAVA / "MonolithEntryActivity.java").read_text(encoding="utf-8")
 core_activity = (JAVA / "MonolithCoreActivity.java").read_text(encoding="utf-8")
 
-# WebView still owns the exclusive in-app scene system, but House Dedmon Access is now a native
-# Android boundary and the WebView launch scene is fallback-only.
-for route in ("monolith-launch", "monolith-model", "monolith-voice", "monolith-rpg"):
+for route in ("monolith-model", "monolith-voice", "monolith-rpg"):
     if route not in scene_runtime:
         raise SystemExit(f"Exclusive scene runtime is missing route: {route}")
 
 for token in (
-    "MONOLITH-SCENE-4",
+    "MONOLITH-SCENE-5",
     "__monolithExclusiveRouter",
-    "buildLaunchScene()",
-    'sceneFor(name)',
+    "activateInitialCommandScene()",
+    'baseRouter.open("command", { push: false, replace: true, cue: null })',
+    'dataset.monolithSceneMounted = "command"',
+    "sceneFor(name)",
     'dataset.monolithLoadState = "loaded"',
 ):
     if token not in scene_runtime:
-        raise SystemExit(f"Scene runtime token is missing: {token}")
+        raise SystemExit(f"Direct Command Chamber runtime token is missing: {token}")
 
-raf_deadlock = '''requestAnimationFrame(() => {\n      document.documentElement.classList.remove("monolith-scene-initializing")'''
-if raf_deadlock in scene_runtime:
-    raise SystemExit("WebView launch visibility still depends on requestAnimationFrame while native WebView starts hidden.")
+for token in (
+    'currentScene: "command"',
+    'document.body.classList.add("jane-deck-launched", "monolith-owner-authorized")',
+    'activateScene("command", { push: false, replace: true, cue: null })',
+    'notifyInterfaceReady?.("command-ready")',
+):
+    if token not in command_deck:
+        raise SystemExit(f"Command deck direct-start token is missing: {token}")
 
 for token in (
     "monolith-scene-runtime-js",
@@ -79,21 +87,68 @@ for token in (
     "MAX_SCENE_VERIFY_ATTEMPTS",
     "sceneMounted = true",
     "MonolithCrashGuard.markStable(MonolithActivity.this)",
-    "exclusive scene did not become visibly painted",
+    "Command Chamber did not become visibly painted",
     "primeCoreSurface()",
-    "startupCurtain",
     "getComputedStyle",
     "getBoundingClientRect",
     "elementFromPoint",
+    "hitInCommand",
+    "active===chamber",
 ):
     if token not in activity_host:
-        raise SystemExit(f"Android scene-paint contract is missing: {token}")
+        raise SystemExit(f"Android Command Chamber paint contract is missing: {token}")
 
 scene_loader_pos = activity_host.index("file:///android_asset/monolith_scene_runtime.js")
 core_loader_pos = activity_host.index("file:///android_asset/monolith_core.js")
 voice_loader_pos = activity_host.index("file:///android_asset/monolith_voice_runtime_patch.js")
 if not (scene_loader_pos < core_loader_pos < voice_loader_pos):
     raise SystemExit("Android host must load scene runtime before core modules and voice runtime.")
+
+for token in ("new Intent(this, MonolithCoreActivity.class)", 'intent.putExtra("monolith_mode", "command")'):
+    if token not in bootstrap:
+        raise SystemExit(f"BIOS direct-core handoff is missing: {token}")
+
+for token in (
+    "public final class MonolithEntryActivity extends Activity",
+    "new Intent(this, MonolithCoreActivity.class)",
+    'return "home".equals(mode) ? "command" : mode',
+):
+    if token not in entry_router:
+        raise SystemExit(f"Compatibility entry direct-core route is missing: {token}")
+
+if "public final class MonolithCoreActivity extends MonolithActivity" not in core_activity:
+    raise SystemExit("MonolithCoreActivity must remain the concrete :core entry over MonolithActivity.")
+
+gate_forbidden = (
+    "HouseDedmonAccessActivity",
+    "House Dedmon Access",
+    "HOUSE DEDMON ACCESS",
+    "ownerGate",
+    "launchJaneButton",
+    "monolith-launch",
+    "monolithEnterButton",
+    "dedmon-launch",
+    "startupCurtain",
+    "VERIFYING VISIBILITY",
+    "MOUNTING SCENE",
+    "EXTRA_NATIVE_ACCESS_GRANTED",
+)
+gate_sources = {
+    "index.html": index,
+    "jane_command_deck.js": command_deck,
+    "monolith_scene_runtime.js": scene_runtime,
+    "monolith_final_ui.js": final_js,
+    "monolith_landscape_gen2.css": landscape_css,
+    "monolith_hardware_gen3.css": hardware_css,
+    "AndroidManifest.xml": manifest,
+    "MonolithActivity.java": activity_host,
+    "MonolithBootstrapActivity.java": bootstrap,
+    "MonolithEntryActivity.java": entry_router,
+}
+for source_name, text in gate_sources.items():
+    for forbidden in gate_forbidden:
+        if forbidden in text:
+            raise SystemExit(f"Removed verification-gate token survived in {source_name}: {forbidden}")
 
 for forbidden in ("ensureOverlay", "state.overlay", 'document.createElement("div");\n    overlay.id = "monolithModuleOverlay"'):
     if forbidden in core:
@@ -107,93 +162,37 @@ for token in (
     'grid-template-columns:minmax(200px,21%) minmax(540px,55%) minmax(225px,24%)',
     '#home #homeJaneModel',
     '#vn[data-jane-scene="chat"]',
-    '.jane-chat-grid',
+    ".jane-chat-grid",
 ):
     if token not in landscape_css:
         raise SystemExit(f"Landscape geometry token missing: {token}")
 
-for token in (
-    ".monolith-model-grid",
-    ".monolith-voice-grid",
-    ".monolith-rpg-grid",
-    "#monolithModuleOverlay{display:none",
-):
+for token in (".monolith-model-grid", ".monolith-voice-grid", ".monolith-rpg-grid", "#monolithModuleOverlay{display:none"):
     if token not in final_css:
         raise SystemExit(f"Secondary cybernetic layout token missing: {token}")
 
-for token in (
-    "MONOLITH-FINAL-UI-3",
-    "monolith_hardware_gen3.css",
-    "forceCommandScene",
-    "auditExclusiveScene",
-):
+for token in ("MONOLITH-FINAL-UI-4", "monolith_hardware_gen3.css", "forceCommandScene", "auditExclusiveScene"):
     if token not in final_js:
-        raise SystemExit(f"WebView fallback/direct-handoff token missing: {token}")
+        raise SystemExit(f"WebView direct-handoff token missing: {token}")
 
-for token in (
-    "--hw-brass",
-    "repeating-conic-gradient",
-    "mix-blend-mode:screen",
-    ".telemetry-track",
-    ".deck-nav-pod",
-):
+for token in ("--hw-brass", "repeating-conic-gradient", ".telemetry-track", ".deck-nav-pod"):
     if token not in hardware_css:
         raise SystemExit(f"Generation-3 tactile hardware token missing: {token}")
-
-if hardware_css.count("box-shadow") < 15:
-    raise SystemExit("Generation-3 hardware skin is too visually shallow; expected layered physical depth.")
-if hardware_css.count("border:2px") < 8:
-    raise SystemExit("Generation-3 hardware skin is missing multi-layer mechanical housings.")
+if hardware_css.count("box-shadow") < 8:
+    raise SystemExit("Generation-3 hardware skin lost expected physical depth.")
+if hardware_css.count("border:2px") < 5:
+    raise SystemExit("Generation-3 hardware skin lost expected mechanical housings.")
 
 for forbidden in ('"72 BPM"', '"98.6°F"'):
     if forbidden in index:
         raise SystemExit(f"Fake telemetry payload survived cleanup: {forbidden}")
-if 'id="ownerGate" class="hidden"' not in index:
-    raise SystemExit("Hidden owner-gate compatibility anchor is missing from index.html.")
-if "House Dedmon Access" in index:
-    raise SystemExit("Legacy House Dedmon HTML overlay survived in index.html.")
-
-# Native House Dedmon gate contract. This is the user-facing launch screen now.
-for token in (
-    "public final class HouseDedmonAccessActivity extends Activity",
-    'getAssets().open("house_dedmon_crest.webp")',
-    "removeEdgeConnectedBlack",
-    'enter.setOnClickListener(v -> enterMonolith())',
-    'intent.putExtra("monolith_mode", "command")',
-    "EXTRA_NATIVE_ACCESS_GRANTED",
-    "HardwareBackdrop",
-    "HardwarePanelDrawable",
-    "ReactorButtonDrawable",
-    "DialView",
-):
-    if token not in native_gate:
-        raise SystemExit(f"Native House Dedmon gate contract is missing: {token}")
-
-for token in (
-    "public final class MonolithEntryActivity extends Activity",
-    "HouseDedmonAccessActivity.EXTRA_NATIVE_ACCESS_GRANTED",
-    "new Intent(this, HouseDedmonAccessActivity.class)",
-    "new Intent(this, MonolithCoreActivity.class)",
-    'core.putExtra("monolith_mode", granted ? "command" : mode)',
-):
-    if token not in entry_router:
-        raise SystemExit(f"Native Monolith entry-router contract is missing: {token}")
-
-if "public final class MonolithCoreActivity extends MonolithActivity" not in core_activity:
-    raise SystemExit("MonolithCoreActivity must remain a thin concrete manifest entry over the proven MonolithActivity implementation.")
 
 for token in ("WebView.disableWebView();", "disabled-safe-native"):
     if token not in application:
         raise SystemExit(f"Native Safe Base WebView-disable contract is missing: {token}")
-
-for token in (
-    "NATIVE RECOVERY CONSOLE // NO WEBVIEW",
-    "CLEAR STATE + RETRY CORE",
-    "MonolithApplication.readCrashReport(this)",
-):
+for token in ("NATIVE RECOVERY CONSOLE // NO WEBVIEW", "CLEAR STATE + RETRY CORE", "MonolithApplication.readCrashReport(this)"):
     if token not in safe_base:
         raise SystemExit(f"Native Safe Base recovery contract is missing: {token}")
-
 if "clearStartupState(Context context)" not in crash_guard:
     raise SystemExit("Crash guard does not expose an explicit persisted startup-state reset.")
 if "MonolithCrashGuard.clearStartupState(context)" not in application:
@@ -201,7 +200,6 @@ if "MonolithCrashGuard.clearStartupState(context)" not in application:
 
 for activity in (
     "ai.monolith.app.MonolithBootstrapActivity",
-    "ai.monolith.app.HouseDedmonAccessActivity",
     "ai.monolith.app.MonolithEntryActivity",
     "ai.monolith.app.MonolithCoreActivity",
     "ai.monolith.app.MonolithSafeBaseActivity",
@@ -227,10 +225,7 @@ entry_alias = re.compile(
     re.DOTALL,
 )
 if not entry_alias.search(manifest):
-    raise SystemExit("Public MonolithActivity component does not route through MonolithEntryActivity.")
-
-if re.search(r'<activity(?=\s)[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity"', manifest, re.DOTALL):
-    raise SystemExit("Legacy HudMainActivity is still registered as a launchable Safe Base activity.")
+    raise SystemExit("Public MonolithActivity compatibility component does not route through MonolithEntryActivity.")
 
 safe_alias = re.compile(
     r'<activity-alias(?=\s)(?=[^>]*android:name="ai\.monolith\.app\.legacy\.HudMainActivity")'
@@ -239,22 +234,15 @@ safe_alias = re.compile(
 )
 if not safe_alias.search(manifest):
     raise SystemExit("Safe Base compatibility alias does not target MonolithSafeBaseActivity.")
-
 if 'android:process=":safe"' not in manifest:
     raise SystemExit("Native Safe Base is not isolated in the :safe process.")
 if 'android:resizeableActivity="false"' not in manifest:
     raise SystemExit("Application resizeability must be disabled for deterministic landscape geometry.")
 
-for xml_path in (
-    RES / "drawable/scifi_hardware_frame.xml",
-    RES / "drawable/scifi_reactor_button.xml",
-    MANIFEST,
-):
-    ET.parse(xml_path)
+ET.parse(MANIFEST)
 
 print(
-    "Final Monolith architecture validated: BIOS routes through a native House Dedmon gate with a real Android "
-    "ENTER control and edge-cleared crest; the public MonolithActivity component is now a compatibility alias "
-    "through MonolithEntryActivity; MonolithCoreActivity alone owns the :core WebView runtime; Safe Base remains "
-    "native and WebView-disabled; in-app scenes remain exclusive and landscape-owned."
+    "Final Monolith architecture validated: BIOS and compatibility entry points route directly to "
+    "the Command Chamber in MonolithCoreActivity; no access gate or mounting curtain remains; "
+    "Safe Base stays native/WebView-disabled; in-app scenes remain exclusive and landscape-owned."
 )

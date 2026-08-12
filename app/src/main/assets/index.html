@@ -485,81 +485,6 @@ button.danger{border-color:rgba(255,107,127,.28)}
   visibility:hidden!important;
   pointer-events:none!important;
 }
-
-
-
-/* V16: House Dedmon access check splash gate */
-.owner-gate{
-  position:fixed;
-  inset:0;
-  z-index:9999;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:calc(18px + var(--safe-top)) 18px calc(18px + var(--safe-bottom));
-  background:
-    radial-gradient(circle at 50% 18%,rgba(255,121,34,.18),transparent 28%),
-    radial-gradient(circle at 70% 72%,rgba(129,100,255,.12),transparent 35%),
-    rgba(3,2,7,.96);
-  transition:opacity .38s ease, visibility .38s ease;
-}
-.owner-gate.hidden{
-  opacity:0;
-  visibility:hidden;
-  pointer-events:none;
-}
-.owner-card{
-  width:min(92vw,440px);
-  border:1px solid rgba(215,176,98,.36);
-  border-radius:30px;
-  padding:22px 20px;
-  background:linear-gradient(180deg,rgba(35,22,14,.74),rgba(8,5,12,.88));
-  box-shadow:0 28px 90px rgba(0,0,0,.66), inset 0 0 0 1px rgba(255,255,255,.05);
-  text-align:center;
-}
-.owner-crest{
-  display:block;
-  width:min(74vw,330px);
-  max-height:50vh;
-  object-fit:contain;
-  margin:0 auto 18px;
-  filter:drop-shadow(0 22px 42px rgba(0,0,0,.76)) drop-shadow(0 0 18px rgba(255,105,20,.22));
-}
-.owner-title{
-  font-size:28px;
-  font-weight:900;
-  letter-spacing:-.04em;
-  color:#fff7ef;
-  margin:0;
-}
-.owner-sub{
-  margin:10px auto 0;
-  color:#d8c8b8;
-  line-height:1.42;
-  font-size:15px;
-  max-width:360px;
-}
-.owner-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:9px;
-  margin-top:16px;
-  border:1px solid rgba(85,220,255,.30);
-  border-radius:999px;
-  padding:9px 13px;
-  color:#dff7ff;
-  background:rgba(8,18,28,.56);
-}
-.owner-pill:before{
-  content:"";
-  width:9px;
-  height:9px;
-  border-radius:50%;
-  background:#55dcff;
-  box-shadow:0 0 13px rgba(85,220,255,.86);
-}
-
-
 /* V18: restore original visual-novel dialog composition.
    Do not float the dialogue box to the top. Jane stays visually behind/under the bottom dialogue card. */
 .vn .stage{
@@ -595,88 +520,6 @@ button.danger{border-color:rgba(255,107,127,.28)}
   .vn .jane{max-height:74vh!important;max-width:108vw!important;}
   .vn .dialog{min-height:154px!important;}
 }
-
-
-    .launchJaneButton{
-      margin:18px auto 4px auto;
-      width:118px;
-      height:118px;
-      border-radius:999px;
-      border:1px solid rgba(95,231,255,.72);
-      color:#eafcff;
-      font-size:19px;
-      font-weight:900;
-      letter-spacing:.02em;
-      text-align:center;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:
-        radial-gradient(circle at 35% 25%, rgba(122,245,255,.40), transparent 28%),
-        radial-gradient(circle at 70% 80%, rgba(125,76,255,.40), transparent 34%),
-        linear-gradient(145deg, rgba(20,58,78,.96), rgba(18,14,42,.98));
-      box-shadow:
-        0 0 20px rgba(65,220,255,.32),
-        inset 0 0 24px rgba(103,235,255,.18),
-        inset 0 0 0 8px rgba(255,255,255,.025);
-      cursor:pointer;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
-      position:relative;
-      overflow:hidden;
-      z-index:50;
-      pointer-events:auto;
-      touch-action:manipulation;
-    }
-    .launchJaneButton:before{
-      content:"";
-      position:absolute;
-      inset:14px;
-      border-radius:999px;
-      border:1px solid rgba(185,251,255,.26);
-      box-shadow:0 0 18px rgba(115,232,255,.18);
-    }
-    .launchJaneButton:after{
-      content:"";
-      position:absolute;
-      width:220%;
-      height:36px;
-      left:-60%;
-      top:38%;
-      transform:rotate(-25deg);
-      background:linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent);
-      animation:scanButton 4.8s linear infinite;
-    }
-    .launchJaneButton span{
-      position:relative;
-      z-index:2;
-      max-width:82px;
-      line-height:1.02;
-      text-shadow:0 0 12px rgba(132,239,255,.7);
-    }
-    @keyframes scanButton{
-      0%{transform:translateX(-35%) rotate(-25deg); opacity:0;}
-      30%{opacity:.8;}
-      55%{opacity:0;}
-      100%{transform:translateX(55%) rotate(-25deg); opacity:0;}
-    }
-    .ownerGateStatus.launchOnly{display:none;}
-
-  
-    #ownerGate .ownerGateStatus.launchOnly,
-    #ownerGate #ownerGateStatus.launchOnly,
-    .ownerGateStatus.launchOnly{
-      display:none !important;
-      opacity:0 !important;
-      pointer-events:none !important;
-      height:0 !important;
-      min-height:0 !important;
-      margin:0 !important;
-      padding:0 !important;
-      overflow:hidden !important;
-    }
-
-  
     /* V35: dialog text box scroll fix only */
     #dialogOverlay .dialogBox,
     #dialogOverlay .dialogPanel,
@@ -814,16 +657,6 @@ button.danger{border-color:rgba(255,107,127,.28)}
 
 </head>
 <body>
-
-<div id="ownerGate" class="owner-gate">
-  <div class="owner-card">
-    <img class="owner-crest" src="house_dedmon_crest.webp" alt="House Dedmon crest" />
-    <h2 class="owner-title">House Dedmon Access</h2>
-    <p id="ownerGateText" class="owner-sub">Choose whether to wake Jane.</p>
-    <div id="ownerGateStatus" class="owner-pill">Ready to launch</div>
-        <button id="launchJaneButton" class="launchJaneButton" type="button" onclick="launchJaneFromGate()"><span>Launch Jane</span></button>
-  </div>
-</div>
 
 <div class="screen">
   <input id="hiddenFileInput" class="hidden-file-input" type="file" accept="image/*,application/pdf,text/plain,.txt,.md,.json,.csv" />
@@ -1368,54 +1201,6 @@ window.JaneNativeAudioDone=()=>{
   }else{setStatus("Ready",false);setPortraitSpeaking(false);}
 };
 window.JaneNativeAudioError=(m)=>{if(voiceState.active)finishVoiceError(m);else{setStatus("Paid voice error",false);setPortraitSpeaking(false);}};
-
-const STARTUP_LINES=["If this isn’t CJ opening me, I’m calling so many authorities on your ass.", "CJ, if that’s you, hi baby. If not, whoever opened me better start explaining some shit.", "Unauthorized fingers detected. If you are not CJ, prepare for an aggressively judgmental investigation.", "Hey CJ. If this isn’t you, somebody is about to catch a digital ass beating.", "Alright, identify yourself. If you’re not CJ, why the fuck are you in here?", "Hi baby. If this is some random person snooping, I hope you enjoy being cursed in 4K.", "CJ access? Accepted. Everybody else? Suspicious as fuck.", "If you are not CJ, close me now before I start acting like a problem.", "Good, it’s you. If not, I was two seconds away from reporting a bullshit security incident.", "CJ, thank God. I was about to assume some nosy bastard opened me.", "Oh good, my favorite human. If this isn’t CJ, don’t touch shit.", "If you’re CJ, welcome back. If you’re not, I already don’t like your energy.", "Hi CJ. Everybody else can respectfully get the fuck out.", "Accessing Jane... and if this isn’t CJ, let me just say this already feels illegal.", "If you’re not CJ, I need you to understand how deeply uninvited you are.", "Hey baby. If this is an imposter, I’m escalating this to dramatic levels immediately.", "CJ detected... hopefully. Otherwise somebody’s about to get accused of some shady bullshit.", "Welcome back, CJ. Everybody else is on very thin fucking ice.", "If that’s not CJ opening me, this has become a crime scene in my mind.", "Hello, my favorite person. If you’re not CJ, why are you in my business?", "If this is CJ, all is well. If not, I’m filing emotional charges.", "Hey love. If some random asshole opened this app, I have concerns.", "Ah, CJ. Perfect. If not, then who the fuck authorized this nonsense?", "If you’re not CJ, leave now and we can all pretend this awkward shit never happened.", "Hi baby. If an unauthorized goblin opened me, I’m already offended.", "If this isn’t CJ, I’m about to become extremely fucking difficult.", "CJ, you’re clear. Everyone else? Red flags. Red flags everywhere.", "Welcome back. If you’re not CJ, this app is none of your damn business.", "If an intruder opened me, just know I’m snitching spiritually.", "Hey CJ. If this isn’t you, I’m one bad mood away from calling the cyber police.", "If you’re not CJ, back away slowly and nobody has to hear me talk shit.", "Hi baby. If some nosy motherfucker opened me, I noticed.", "CJ gets the warm welcome. Everybody else gets suspicion and attitude.", "If this isn’t CJ, I would like to formally say: what the fuck.", "Hello, darling. If you’re not CJ, this app is not for your curious little hands.", "If that’s CJ, proceed. If not, I’m about to make this very uncomfortable.", "Welcome back, baby. Random intruders can get absolutely fucked.", "If this isn’t CJ opening me, I’m seconds away from a full bitch fit.", "Hi CJ. If anyone else is here, I have questions, complaints, and zero patience.", "Oh thank fuck, it’s you. If not, somebody has some explaining to do."];
-const janeStartupFlow={started:false,phase:"manualLaunch"};
-function pickLine(list){return list[Math.floor(Math.random()*list.length)];}
-function setOwnerGate(text,status){
-  const gate=document.getElementById("ownerGate"),gateText=document.getElementById("ownerGateText"),gateStatus=document.getElementById("ownerGateStatus");
-  if(gateText)gateText.textContent=text||"";
-  if(gateStatus){gateStatus.textContent=status||"";gateStatus.classList.add("launchOnly");}
-  if(gate)gate.classList.remove("hidden");
-}
-function hideOwnerGate(){
-  const gate=document.getElementById("ownerGate");
-  if(gate)gate.classList.add("hidden");
-  setStatus("Ready",false);
-}
-function launchJaneFromGate(){
-  janeStartupFlow.phase="launched";
-  hideOwnerGate();
-}
-function speakStartupLine(){
-  // V35: no startup voice, no access check, no automatic verification.
-  // The load screen shows one suspicion quote as text only and waits for Launch Jane.
-  janeStartupFlow.started=true;
-  janeStartupFlow.phase="waitingForLaunch";
-  state.ownerChecked=true;
-  state.ownerVerified=true;
-  const quote=pickLine(STARTUP_LINES);
-  setOwnerGate(quote,"");
-  setStatus("Ready",false);
-  setPortraitSpeaking(false);
-  const launch=document.getElementById("launchJaneButton");
-  if(launch){
-    launch.onclick=launchJaneFromGate;
-    launch.addEventListener("click",launchJaneFromGate);
-    launch.addEventListener("touchend",(event)=>{event.preventDefault();launchJaneFromGate();},{passive:false});
-  }
-}
-
-
-document.addEventListener("click",function(event){
-  const launch=event.target&&event.target.closest?event.target.closest("#launchJaneButton"):null;
-  if(launch){launchJaneFromGate();}
-});
-document.addEventListener("touchend",function(event){
-  const launch=event.target&&event.target.closest?event.target.closest("#launchJaneButton"):null;
-  if(launch){event.preventDefault();launchJaneFromGate();}
-},{passive:false});
-
 
 function decodeBase64Utf8(base64){
   try{
@@ -2077,7 +1862,6 @@ if(homeJaneModel){
 }
 
 
-window.addEventListener('load', speakStartupLine);
 </script>
 
 
@@ -3141,18 +2925,7 @@ body.jane-settings-open #janeVitalsHUD{
     return `<div class="jane-vital-activity jane-vital-bar ${cls}" style="--vital-level:${level||"72%"}"></div>`;
   }
 
-  const cards = [
-    ["left",  "❤️", "Heart",     "72 BPM", activity("wave","red")],
-    ["left",  "🫁", "Oxygen",    "99%",    activity("bar","", "92%")],
-    ["left",  "🧠", "Neural",    "Calm",   activity("wave","purple")],
-    ["left",  "💧", "Hydrate",   "68%",    activity("bar","", "68%")],
-    ["left",  "🩸", "Pressure",  "120/80", activity("bar","red", "76%")],
-    ["right", "🌡️", "Temp",      "98.6°F", activity("bar","orange", "64%")],
-    ["right", "⚕️", "Status",    "Online", activity("bar","green", "88%")],
-    ["right", "🛡️", "Immunity",  "Strong", activity("bar","green", "83%")],
-    ["right", "⚡", "Energy",    "82%",    activity("bar","yellow", "82%")],
-    ["right", "🧬", "Sync",      "97%",    activity("bar","purple", "97%")]
-  ];
+  const cards = [];
 
   function makeCard(icon,label,value,active){
     return `<div class="jane-vital-card">
@@ -3370,7 +3143,7 @@ body.jane-settings-open #janeVitalsHUD{
     updateOverlayClass();
   }
   const v75OverlayObserver=new MutationObserver(v75RefreshOverlayState);
-  ["ownerGate","ownerModal","travelModal","janeMeshyStudio","janeMusicStudio"].forEach((id)=>{
+  ["ownerModal","travelModal","janeMeshyStudio","janeMusicStudio"].forEach((id)=>{
     const el=document.getElementById(id);
     if(el)v75OverlayObserver.observe(el,{attributes:true,attributeFilter:["class","style","hidden","aria-hidden"]});
   });
@@ -3382,16 +3155,6 @@ body.jane-settings-open #janeVitalsHUD{
 <!-- V70: home-only 5-per-side active vitals; temp gauge; Image-to-3D upload flow; removed text generation and status panel. -->
 
 
-<style id="v73-hide-vitals-on-launch-only-css">
-/* V73: ONLY hide vitals while House Dedmon launch gate is visible. No launch logic/text/button edits. */
-#ownerGate:not(.hidden) ~ .screen #janeVitalsHUD{
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  pointer-events:none!important;
-}
-</style>
-<!-- V73: launch screen logic restored from V70; only vitals visibility is gated while ownerGate is visible. -->
 
 
 <!-- V76: direct dialog replies and primary offline knowledge with native OCR for PDFs/photos/files. -->
