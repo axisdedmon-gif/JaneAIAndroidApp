@@ -6,11 +6,11 @@ on:
     branches: [ "main", "dev" ]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: monolith-automated-build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   calculate-and-build:
@@ -157,3 +157,16 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+      - name: Publish Unambiguous Direct-Install APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK_PATH="$(find dist -maxdepth 1 -type f -name 'MonolithAI-DIRECT-COMMAND-*.apk' -print -quit)"
+          test -n "$APK_PATH"
+          test -s "$APK_PATH"
+          RELEASE_TAG="monolith-direct-command-${VERSION_CODE}"
+          gh release create "$RELEASE_TAG" "$APK_PATH" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Monolith AI Direct Command ${VERSION_NAME}" \
+            --notes "Install this APK. It preserves the BIOS and opens the Command Chamber directly. The House Dedmon verification page and mounting/visibility curtain are absent."

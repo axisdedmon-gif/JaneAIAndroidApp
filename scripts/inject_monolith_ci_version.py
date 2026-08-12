@@ -92,7 +92,7 @@ build_text = replace_once(
 build_text = replace_once(
     build_text,
     r'^FINAL_APK=.*$',
-    'FINAL_APK="$DIST_DIR/MonolithAI-${BETA_VERSION}.apk"',
+    'FINAL_APK="$DIST_DIR/MonolithAI-DIRECT-COMMAND-${BETA_VERSION}.apk"',
     "build-script APK filename",
 )
 
