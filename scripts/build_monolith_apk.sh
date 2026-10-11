@@ -89,7 +89,7 @@ grep -q 'sherpa-onnx-1.13.4.aar' app/build.gradle
 grep -q '<string name="app_name">Monolith AI</string>' app/src/main/res/values/strings.xml
 
 grep -q 'android:name="ai.monolith.app.MonolithApplication"' app/src/main/AndroidManifest.xml
-grep -q 'android:name="ai.monolith.app.MonolithBootstrapActivity"' app/src/main/AndroidManifest.xml
+grep -q 'android:name="ai.monolith.app.HouseDedmonAccessActivity"' app/src/main/AndroidManifest.xml
 grep -q 'android:name="ai.monolith.app.MonolithActivity"' app/src/main/AndroidManifest.xml
 grep -q 'android:process=":core"' app/src/main/AndroidManifest.xml
 grep -q 'android:name="ai.monolith.app.legacy.HudMainActivity"' app/src/main/AndroidManifest.xml
@@ -249,7 +249,7 @@ if not version_code or version_code.group(1) != '200004': raise SystemExit('Mono
 if not version_name or version_name.group(1) != 'Beta 2.0.04': raise SystemExit('Monolith Beta 2.0.04 version validation failed.')
 for required_manifest_token in [
     'ai.monolith.app.MonolithApplication',
-    'ai.monolith.app.MonolithBootstrapActivity',
+    'ai.monolith.app.HouseDedmonAccessActivity',
     'android:process=":core"',
     'ai.monolith.app.legacy.HudMainActivity',
     'android:process=":safe"',
