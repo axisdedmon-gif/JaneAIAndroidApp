@@ -22,6 +22,7 @@ required_files = [
     JAVA / "MonolithActivity.java",
     JAVA / "MonolithApplication.java",
     JAVA / "MonolithBootstrapActivity.java",
+    JAVA / "HouseDedmonAccessActivity.java",
     JAVA / "MonolithSafeBaseActivity.java",
     JAVA / "MonolithCrashGuard.java",
     JAVA / "MonolithEntryActivity.java",
@@ -32,8 +33,8 @@ for path in required_files:
         raise SystemExit(f"Required Monolith runtime/UI file is missing or empty: {path.relative_to(ROOT)}")
 
 gate_activity = JAVA / "HouseDedmonAccessActivity.java"
-if gate_activity.exists():
-    raise SystemExit("Removed HouseDedmonAccessActivity.java was reintroduced.")
+if not gate_activity.is_file() or gate_activity.stat().st_size == 0:
+    raise SystemExit("House Dedmon must be the sole native launch screen.")
 
 scene_runtime = (ASSETS / "monolith_scene_runtime.js").read_text(encoding="utf-8")
 command_deck = (ASSETS / "jane_command_deck.js").read_text(encoding="utf-8")
@@ -51,6 +52,7 @@ bootstrap = (JAVA / "MonolithBootstrapActivity.java").read_text(encoding="utf-8"
 safe_base = (JAVA / "MonolithSafeBaseActivity.java").read_text(encoding="utf-8")
 crash_guard = (JAVA / "MonolithCrashGuard.java").read_text(encoding="utf-8")
 entry_router = (JAVA / "MonolithEntryActivity.java").read_text(encoding="utf-8")
+house_gate = gate_activity.read_text(encoding="utf-8")
 core_activity = (JAVA / "MonolithCoreActivity.java").read_text(encoding="utf-8")
 
 for route in ("monolith-model", "monolith-voice", "monolith-rpg"):
