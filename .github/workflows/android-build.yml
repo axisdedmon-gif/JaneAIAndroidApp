@@ -3,7 +3,7 @@ run-name: "Monolith AI · ${{ github.ref_name }} · CI #${{ github.run_number }}
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main", "dev", "fix/native-dedmon-gate" ]
 
 permissions:
   contents: read
