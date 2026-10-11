@@ -236,10 +236,33 @@ if 'android:process=":safe"' not in manifest:
 if 'android:resizeableActivity="false"' not in manifest:
     raise SystemExit("Application resizeability must be disabled for deterministic landscape geometry.")
 
+gate_launcher = re.search(
+    r'<activity(?=[^>]*android:name="ai\\.monolith\\.app\\.HouseDedmonAccessActivity")'
+    r'(?=[^>]*android:screenOrientation="sensorLandscape")[^>]*>(.*?)</activity>',
+    manifest,
+    re.DOTALL,
+)
+if not gate_launcher or "android.intent.action.MAIN" not in gate_launcher.group(1) or "android.intent.category.LAUNCHER" not in gate_launcher.group(1):
+    raise SystemExit("House Dedmon is not the registered landscape launcher.")
+if 'android:name="ai.monolith.app.MonolithBootstrapActivity"' in manifest:
+    raise SystemExit("BIOS/bootstrap screen must not be registered as an app activity.")
+for token in (
+    "public final class HouseDedmonAccessActivity extends Activity",
+    "house_dedmon_crest.webp",
+    "HOUSE DEDMON ACCESS",
+    "private void enterMonolith()",
+    'intent.putExtra("monolith_mode", "command")',
+    "MonolithCoreActivity",
+):
+    if token not in house_gate:
+        raise SystemExit(f"House Dedmon launch screen is missing required behavior: {token}")
+if "MonolithBootstrapActivity" in house_gate:
+    raise SystemExit("House Dedmon launch failure must not route to a BIOS/bootstrap screen.")
+
 ET.parse(MANIFEST)
 
 print(
-    "Final Monolith architecture validated: BIOS and compatibility entry points route directly to "
-    "the Command Chamber in MonolithCoreActivity; no access gate or mounting curtain remains; "
+    "Final Monolith architecture validated: House Dedmon is the sole native launcher and enters "
+    "MonolithCoreActivity directly; no BIOS/pre-launch screen or legacy access overlay remains; "
     "Safe Base stays native/WebView-disabled; in-app scenes remain exclusive and landscape-owned."
 )
