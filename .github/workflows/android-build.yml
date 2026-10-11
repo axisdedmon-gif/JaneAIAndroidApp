@@ -92,10 +92,7 @@ jobs:
           grep -q 'android:name="ai.monolith.app.HouseDedmonAccessActivity"' app/src/main/AndroidManifest.xml
           grep -q 'HOUSE DEDMON ACCESS' app/src/main/java/ai/monolith/app/HouseDedmonAccessActivity.java
           grep -q 'house_dedmon_crest.webp' app/src/main/java/ai/monolith/app/HouseDedmonAccessActivity.java
-          if grep -q 'HouseDedmonAccessActivity\|HOUSE DEDMON ACCESS\|House Dedmon Access' app/src/main/assets/index.html app/src/main/assets/jane_command_deck.js app/src/main/assets/monolith_scene_runtime.js app/src/main/assets/monolith_final_ui.js app/src/main/java/ai/monolith/app/MonolithActivity.java app/src/main/java/ai/monolith/app/MonolithEntryActivity.java; then
-            echo 'House Dedmon launch screen was duplicated inside the app UI.' >&2
-            exit 1
-          fi
+          # The Python validator checks for duplicated launch gates across all runtime UI sources.
 
           grep -q 'MONOLITH-CORE-2' app/src/main/assets/monolith_core.js
           if grep -q 'ensureOverlay\|state\.overlay' app/src/main/assets/monolith_core.js; then
