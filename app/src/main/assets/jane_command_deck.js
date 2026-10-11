@@ -808,35 +808,25 @@
     const meshy = document.getElementById("janeMeshyStudio");
     const music = document.getElementById("janeMusicStudio");
     const settings = document.getElementById("ownerModal");
-    const missing = [];
-    if (!home) missing.push("#home");
-    if (!chat) missing.push("#vn");
-    if (!home || !chat) {
-      console.error("[Jane Command Deck] Critical scenes missing:", missing.join(", "));
-      document.documentElement.dataset.janeDeckError = "critical-scenes-missing:" + missing.join(",");
+    if (!home || !chat || !archives || !meshy || !music || !settings) {
+      console.error("[Jane Command Deck] Required legacy scene missing.");
       return;
     }
 
     vfx.install();
     const relocated = prepareCommandScene(home);
     prepareChatScene(chat, relocated.prompt, relocated.history);
-    if (archives) prepareArchivesScene(archives);
-    if (meshy || music) prepareStudioHub();
-    if (meshy && music) prepareStudioScenes(meshy, music);
-    if (settings) prepareSettingsScene(settings);
+    prepareArchivesScene(archives);
+    const studio = prepareStudioHub();
+    prepareStudioScenes(meshy, music);
+    prepareSettingsScene(settings);
 
     const host = document.createElement("main");
     host.id = "janeSceneHost";
     host.setAttribute("aria-hidden", "true");
     document.body.appendChild(host);
-    const scenes = { command: home, chat };
-    if (archives) scenes.archives = archives;
-    if (document.getElementById("janeStudioHub")) scenes.studio = document.getElementById("janeStudioHub");
-    if (music) scenes.music = music;
-    if (meshy) scenes.model = meshy;
-    if (settings) scenes.settings = settings;
+    const scenes = { command: home, chat, archives, studio, music, model: meshy, settings };
     Object.entries(scenes).forEach(([name, element]) => {
-      if (!element) return;
       element.dataset.janeScene = name;
       element.dataset.janeActive = "false";
       element.setAttribute("aria-hidden", "true");
