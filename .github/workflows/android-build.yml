@@ -87,7 +87,7 @@ jobs:
           grep -q 'hitInCommand' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'active===chamber' app/src/main/java/ai/monolith/app/MonolithActivity.java
           grep -q 'MonolithCrashGuard.markStable(MonolithActivity.this)' app/src/main/java/ai/monolith/app/MonolithActivity.java
-          grep -q 'new Intent(this, MonolithCoreActivity.class)' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+          grep -q 'new Intent(this, MonolithActivity.class)' app/src/main/java/ai/monolith/app/HouseDedmonAccessActivity.java
 
           grep -q 'android:name="ai.monolith.app.HouseDedmonAccessActivity"' app/src/main/AndroidManifest.xml
           grep -q 'HOUSE DEDMON ACCESS' app/src/main/java/ai/monolith/app/HouseDedmonAccessActivity.java
