@@ -252,7 +252,7 @@ for token in (
     "HOUSE DEDMON ACCESS",
     "private void enterMonolith()",
     'intent.putExtra("monolith_mode", "command")',
-    "MonolithCoreActivity",
+    "MonolithActivity.class",
 ):
     if token not in house_gate:
         raise SystemExit(f"House Dedmon launch screen is missing required behavior: {token}")
