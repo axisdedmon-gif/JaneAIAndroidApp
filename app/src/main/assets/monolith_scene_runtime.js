@@ -200,6 +200,8 @@
     return true;
   }
 
+  let initializationWatchdog = 0;
+
   function activateInitialCommandScene() {
     if (initialCommandActivated || !baseRouter) return;
     const host = sceneHost();
@@ -252,8 +254,6 @@
     }
     loadScript("jane-command-deck-js", "file:///android_asset/jane_command_deck.js", finishDeck);
   }
-
-  let initializationWatchdog = 0;
 
   const style = document.createElement("style");
   style.id = "monolith-scene-runtime-css";
