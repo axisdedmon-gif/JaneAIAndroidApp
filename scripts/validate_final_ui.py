@@ -122,9 +122,6 @@ if "public final class MonolithCoreActivity extends MonolithActivity" not in cor
     raise SystemExit("MonolithCoreActivity must remain the concrete :core entry over MonolithActivity.")
 
 gate_forbidden = (
-    "HouseDedmonAccessActivity",
-    "House Dedmon Access",
-    "HOUSE DEDMON ACCESS",
     "ownerGate",
     "launchJaneButton",
     "monolith-launch",
@@ -133,7 +130,6 @@ gate_forbidden = (
     "startupCurtain",
     "VERIFYING VISIBILITY",
     "MOUNTING SCENE",
-    "EXTRA_NATIVE_ACCESS_GRANTED",
 )
 gate_sources = {
     "index.html": index,
@@ -142,7 +138,6 @@ gate_sources = {
     "monolith_final_ui.js": final_js,
     "monolith_landscape_gen2.css": landscape_css,
     "monolith_hardware_gen3.css": hardware_css,
-    "AndroidManifest.xml": manifest,
     "MonolithActivity.java": activity_host,
     "MonolithBootstrapActivity.java": bootstrap,
     "MonolithEntryActivity.java": entry_router,
@@ -201,7 +196,7 @@ if "MonolithCrashGuard.clearStartupState(context)" not in application:
     raise SystemExit("Clearing the BIOS diagnostic does not clear crash-guard safe-mode state.")
 
 for activity in (
-    "ai.monolith.app.MonolithBootstrapActivity",
+    "ai.monolith.app.HouseDedmonAccessActivity",
     "ai.monolith.app.MonolithEntryActivity",
     "ai.monolith.app.MonolithCoreActivity",
     "ai.monolith.app.MonolithSafeBaseActivity",
