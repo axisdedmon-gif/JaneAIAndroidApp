@@ -45,7 +45,7 @@
         <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
 
         <activity
-            android:name="ai.monolith.app.MonolithBootstrapActivity"
+            android:name="ai.monolith.app.HouseDedmonAccessActivity"
             android:exported="true"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|uiMode">
