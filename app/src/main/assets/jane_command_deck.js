@@ -822,7 +822,7 @@
     prepareChatScene(chat, relocated.prompt, relocated.history);
     if (archives) prepareArchivesScene(archives);
     if (meshy || music) prepareStudioHub();
-    if (meshy || music) prepareStudioScenes(meshy, music);
+    if (meshy && music) prepareStudioScenes(meshy, music);
     if (settings) prepareSettingsScene(settings);
 
     const host = document.createElement("main");
