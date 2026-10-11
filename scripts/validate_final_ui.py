@@ -237,7 +237,7 @@ if 'android:resizeableActivity="false"' not in manifest:
     raise SystemExit("Application resizeability must be disabled for deterministic landscape geometry.")
 
 gate_launcher = re.search(
-    r'<activity(?=[^>]*android:name="ai\\.monolith\\.app\\.HouseDedmonAccessActivity")'
+    r'<activity(?=[^>]*android:name="ai\.monolith\.app\.HouseDedmonAccessActivity")'
     r'(?=[^>]*android:screenOrientation="sensorLandscape")[^>]*>(.*?)</activity>',
     manifest,
     re.DOTALL,
