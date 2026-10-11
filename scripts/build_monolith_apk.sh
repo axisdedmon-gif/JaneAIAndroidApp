@@ -100,9 +100,13 @@ grep -q 'MonolithAccessibilityService' app/src/main/AndroidManifest.xml
 grep -q 'MonolithSearchWidgetProvider' app/src/main/AndroidManifest.xml
 
 grep -q 'MONOLITH AI RUNTIME DIAGNOSTIC' app/src/main/java/ai/monolith/app/MonolithApplication.java
-grep -q 'DETERMINISTIC STARTUP BOUNDARY // BETA 2.0.04' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
-grep -q 'SciFiButtonDrawable' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
-grep -q 'monolith.bootstrap --cold-start' app/src/main/java/ai/monolith/app/MonolithBootstrapActivity.java
+grep -q 'HOUSE DEDMON ACCESS' app/src/main/java/ai/monolith/app/HouseDedmonAccessActivity.java
+grep -q 'house_dedmon_crest.webp' app/src/main/java/ai/monolith/app/HouseDedmonAccessActivity.java
+grep -q 'new Intent(this, MonolithActivity.class)' app/src/main/java/ai/monolith/app/HouseDedmonAccessActivity.java
+if grep -q 'android:name="ai.monolith.app.MonolithBootstrapActivity"' app/src/main/AndroidManifest.xml; then
+  echo 'BIOS/bootstrap screen must not be registered as a launch activity.' >&2
+  exit 1
+fi
 
 # Android 16 / Samsung startup regression guard. Immersive mode must not query an insets
 # controller until the DecorView is attached to a window.
