@@ -141,8 +141,15 @@ public class MonolithActivity extends HudMainActivity {
     private void primeCoreSurface() {
         if (monolithWebView == null) return;
         monolithWebView.animate().cancel();
+        // Keep the Android WebView surface explicitly touchable and hardware accelerated.
+        // The Command Chamber uses continuous CSS motion and a dense layered HUD.
+        monolithWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        monolithWebView.setClickable(true);
+        monolithWebView.setFocusable(true);
+        monolithWebView.setFocusableInTouchMode(true);
         monolithWebView.setAlpha(1f);
         monolithWebView.setVisibility(View.VISIBLE);
+        monolithWebView.requestFocus(View.FOCUS_DOWN);
     }
 
     private void scheduleInjection() {
