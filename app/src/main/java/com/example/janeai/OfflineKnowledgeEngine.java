@@ -98,9 +98,21 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
         boolean wantsQuote = QUOTE_REQUEST.matcher(cleanQuestion).find();
         String context = buildContext(hits, wantsSources || wantsQuote);
 
-        // Jane's knowledge mode is intentionally bounded by what C.J. has taught her.
+        // Empty Archives must not disable ordinary conversation. In this case Jane uses
+        // the on-device language model for conversational replies without claiming that the
+        // answer came from C.J.'s stored knowledge. Knowledge-backed questions still use RAG.
         if (context.isEmpty()) {
-            return "I don't know that from the knowledge you've given me yet.";
+            String generalSystem = "You are Jane, C.J.'s personal AI companion running completely offline. "
+                + (ownerVerified
+                    ? "You are speaking directly to C.J. Be familiar, confident, intelligent, conversational, and lightly playful when it fits. "
+                    : "Be confident, intelligent, conversational, and concise. ")
+                + "Answer the user's message naturally. You may handle greetings, casual conversation, riddles, brainstorming, and general explanations. "
+                + "Do not claim to remember private facts that were not supplied, do not pretend to have internet access, and be clear when uncertain. "
+                + "Keep the response useful and usually between one and four sentences. Produce only Jane's reply.";
+            String generalPrompt = qwenPrompt(generalSystem, cleanQuestion);
+            String generalAnswer = finalPolish(cleanGeneratedText(generate(generalPrompt)), false, false);
+            if (isMeaningfulProse(generalAnswer)) return generalAnswer;
+            throw new IllegalStateException("Jane's on-device model did not produce a usable conversational response.");
         }
 
         String system = buildSystemInstruction(
