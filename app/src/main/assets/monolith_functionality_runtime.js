@@ -100,9 +100,9 @@
     }
 
     const id = "mono-chat-" + Date.now().toString(36) + "-" + (++requestCounter);
+    addLine("user", message);
     const replyBody = addLine("assistant", "Connecting to Jane's on-device language model…");
     if (!replyBody) return false;
-    addLine("user", message);
     pending.set(id, { body: replyBody });
     input.value = "";
     input.disabled = true;
@@ -155,7 +155,7 @@
       stage.dataset.monolithGlbState = "asset-missing";
       const status = $(".monolith-glb-status", stage) || document.createElement("div");
       status.className = "monolith-glb-status";
-      status.textContent = "JANE GLB ASSET NOT BUNDLED";
+      if (status.textContent !== "JANE GLB ASSET NOT BUNDLED") status.textContent = "JANE GLB ASSET NOT BUNDLED";
       status.style.cssText = "position:absolute;z-index:9;left:50%;top:68%;transform:translateX(-50%);font:700 9px ui-monospace,monospace;letter-spacing:.12em;color:#e6a15e;text-align:center;pointer-events:none;";
       if (!status.parentNode) stage.appendChild(status);
       return;
@@ -192,6 +192,8 @@
         viewer.style.cssText = "position:absolute;inset:4% 8% 8%;width:84%;height:88%;z-index:5;background:transparent;--poster-color:transparent;";
         stage.appendChild(viewer);
       }
+      if (viewer.dataset.monolithModelBound === "true") return;
+      viewer.dataset.monolithModelBound = "true";
       viewer.setAttribute("src", source);
       viewer.addEventListener("load", () => {
         stage.dataset.monolithGlbState = "loaded";
