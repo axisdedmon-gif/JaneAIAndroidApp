@@ -183,10 +183,13 @@ public class MonolithActivity extends HudMainActivity {
             "css('monolith-core-css','file:///android_asset/monolith_core.css');" +
             "load('monolith-scene-runtime-js','file:///android_asset/monolith_scene_runtime.js',function(){return !!window.MonolithSceneRuntime;},function(){" +
                 "load('monolith-core-js','file:///android_asset/monolith_core.js',function(){return !!window.MonolithCore;},function(){" +
-                    "load('monolith-voice-runtime-js','file:///android_asset/monolith_voice_runtime_patch.js',function(){return !!window.MonolithVoiceRuntimePatch;},function(){" +
-                        "if(window.MonolithVoiceRuntimePatch&&window.MonolithVoiceRuntimePatch.apply)window.MonolithVoiceRuntimePatch.apply();" +
-                        "if(window.MonolithCore&&window.MonolithCore.refresh)window.MonolithCore.refresh();" +
-                        "if(window.MonolithSceneRuntime&&window.MonolithSceneRuntime.refresh)window.MonolithSceneRuntime.refresh();" +
+                    "load('monolith-functionality-runtime-js','file:///android_asset/monolith_functionality_runtime.js',function(){return !!window.MonolithFunctionalityRuntime;},function(){" +
+                        "if(window.MonolithFunctionalityRuntime&&window.MonolithFunctionalityRuntime.refresh)window.MonolithFunctionalityRuntime.refresh();" +
+                        "load('monolith-voice-runtime-js','file:///android_asset/monolith_voice_runtime_patch.js',function(){return !!window.MonolithVoiceRuntimePatch;},function(){" +
+                            "if(window.MonolithVoiceRuntimePatch&&window.MonolithVoiceRuntimePatch.apply)window.MonolithVoiceRuntimePatch.apply();" +
+                            "if(window.MonolithCore&&window.MonolithCore.refresh)window.MonolithCore.refresh();" +
+                            "if(window.MonolithSceneRuntime&&window.MonolithSceneRuntime.refresh)window.MonolithSceneRuntime.refresh();" +
+                        "});" +
                     "});" +
                 "});" +
             "});" +
