@@ -122,6 +122,38 @@
     return true;
   }
 
+  function bindNavigationFallback() {
+    if (document.documentElement.dataset.monolithNavigationFallbackBound === "true") return;
+    document.documentElement.dataset.monolithNavigationFallbackBound = "true";
+    const routes = {
+      janeNavChat: "chat",
+      janeNavArchives: "archives",
+      janeNavStudio: "studio",
+      janeNavSettings: "settings",
+      monolithNavModel: "model",
+      monolithNavVoice: "voice",
+      monolithNavRpg: "rpg"
+    };
+    document.addEventListener("click", event => {
+      const button = event.target && event.target.closest
+        ? event.target.closest("#janeNavChat,#janeNavArchives,#janeNavStudio,#janeNavSettings,#monolithNavModel,#monolithNavVoice,#monolithNavRpg,.deck-nav-pod")
+        : null;
+      if (!button || button.disabled) return;
+      const route = routes[button.id] || button.dataset.monolithRoute;
+      if (!route) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const router = window.JaneSceneRouter;
+      if (router && typeof router.open === "function") {
+        router.open(route, route === "chat" ? { initialPortrait: true } : undefined);
+      } else if (window.MonolithCore && typeof window.MonolithCore.open === "function") {
+        window.MonolithCore.open(route);
+      } else {
+        document.documentElement.dataset.monolithNavigationError = "router-unavailable";
+      }
+    }, true);
+  }
+
   function bindChat() {
     if (document.documentElement.dataset.monolithChatEventsBound === "true") return;
     document.documentElement.dataset.monolithChatEventsBound = "true";
@@ -209,6 +241,7 @@
   }
 
   function refresh() {
+    bindNavigationFallback();
     bindChat();
     ensureModelViewer();
   }
