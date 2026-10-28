@@ -108,7 +108,7 @@ public final class OfflineKnowledgeEngine implements AutoCloseable {
                     : "Be confident, intelligent, conversational, and concise. ")
                 + "Answer the user's message naturally. You may handle greetings, casual conversation, riddles, brainstorming, and general explanations. "
                 + "Do not claim to remember private facts that were not supplied, do not pretend to have internet access, and be clear when uncertain. "
-                + "Keep the response useful and usually between one and four sentences. Produce only Jane's reply.";
+                + "Keep the response useful and usually between one and three sentences. Produce only Jane's reply.";
             String generalPrompt = qwenPrompt(generalSystem, cleanQuestion);
             String generalAnswer = finalPolish(cleanGeneratedText(generate(generalPrompt)), false, false);
             if (isMeaningfulProse(generalAnswer)) return generalAnswer;
