@@ -213,9 +213,22 @@
     ensureModelViewer();
   }
 
+  let refreshQueued = false;
+  function scheduleRefresh() {
+    if (refreshQueued) return;
+    refreshQueued = true;
+    window.requestAnimationFrame(() => {
+      refreshQueued = false;
+      refresh();
+    });
+  }
+
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", refresh, { once: true });
   else refresh();
-  new MutationObserver(() => refresh()).observe(document.documentElement, { childList: true, subtree: true });
-  window.addEventListener("jane-scene-change", refresh);
-  window.MonolithFunctionalityRuntime = { refresh, sendMessage };
+  // Coalesce DOM changes into one refresh per frame. The scene is mutation-heavy during boot;
+  // synchronous observer refreshes can starve WebView input and animation frames on Android.
+  new MutationObserver(scheduleRefresh).observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener("jane-scene-change", scheduleRefresh);
+  window.addEventListener("resize", scheduleRefresh, { passive: true });
+  window.MonolithFunctionalityRuntime = { refresh, sendMessage, scheduleRefresh };
 })();
