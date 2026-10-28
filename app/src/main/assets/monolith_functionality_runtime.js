@@ -123,34 +123,32 @@
   }
 
   function bindChat() {
-    const input = $("#userInput");
-    if (!input) return;
-    const send = $("#sendBtn");
-    if (send && send.dataset.monolithChatBound !== "true") {
-      send.dataset.monolithChatBound = "true";
-      send.addEventListener("click", event => {
+    if (document.documentElement.dataset.monolithChatEventsBound === "true") return;
+    document.documentElement.dataset.monolithChatEventsBound = "true";
+    document.addEventListener("click", event => {
+      const button = event.target && event.target.closest ? event.target.closest("#sendBtn") : null;
+      if (!button) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      sendMessage();
+    }, true);
+    document.addEventListener("keydown", event => {
+      if (!event.target || !event.target.matches || !event.target.matches("#userInput")) return;
+      if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         event.stopImmediatePropagation();
         sendMessage();
-      }, true);
-    }
-    if (input.dataset.monolithChatBound !== "true") {
-      input.dataset.monolithChatBound = "true";
-      input.addEventListener("keydown", event => {
-        if (event.key === "Enter" && !event.shiftKey) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          sendMessage();
-        }
-      }, true);
-    }
+      }
+    }, true);
   }
 
   function ensureModelViewer() {
     const stage = $("#home .home-stage");
+    if (!stage) return;
     const sourceNode = $("#homeJaneModel");
-    if (!stage || !sourceNode) return;
-    const source = sourceNode.getAttribute("src") || sourceNode.getAttribute("data-src") || "";
+    const source = sourceNode
+      ? (sourceNode.getAttribute("src") || sourceNode.getAttribute("data-src") || "")
+      : "";
     if (!source.trim()) {
       stage.dataset.monolithGlbState = "asset-missing";
       const status = $(".monolith-glb-status", stage) || document.createElement("div");
