@@ -135,7 +135,7 @@ button svg{fill:none!important;stroke:currentColor!important;stroke-width:1.25!i
 #home .home-stage:before{content:""!important;position:absolute!important;inset:auto!important;left:50%!important;top:50%!important;width:min(42vw,560px)!important;height:min(42vw,560px)!important;transform:translate(-50%,-50%)!important;border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(0,229,255,.4) 0 1deg,transparent 1deg 11deg),radial-gradient(circle,transparent 0 55%,rgba(0,229,255,.11) 56% 57%,transparent 58% 71%,rgba(59,130,246,.11) 72% 73%,transparent 74%)!important;opacity:.58!important;mask:radial-gradient(circle,transparent 0 54%,#000 55% 74%,transparent 75%);animation:monoStageSpin 42s linear infinite}
 #home .home-stage:after{content:""!important;position:absolute!important;inset:7% 17% 6%!important;border-left:1px solid rgba(0,229,255,.16);border-right:1px solid rgba(0,229,255,.16);background:linear-gradient(90deg,transparent,rgba(0,229,255,.04),transparent)!important;pointer-events:none}
 @keyframes monoStageSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
-#home .home-stage model-viewer,#home #homeJaneModel{position:relative!important;z-index:5!important;width:100%!important;height:100%!important;min-height:100%!important;background:transparent!important;pointer-events:auto!important;touch-action:manipulation!important}
+#home .home-stage model-viewer,#home #homeJaneModel{position:relative!important;z-index:5!important;width:100%!important;height:100%!important;min-height:100%!important;background:transparent!important;pointer-events:none!important}
 .jane-containment-ring{position:absolute!important;z-index:4!important;left:50%!important;bottom:4%!important;width:58%!important;height:14%!important;transform:translateX(-50%) perspective(400px) rotateX(68deg)!important;border:1px solid rgba(0,229,255,.28)!important;border-radius:50%!important;box-shadow:0 0 20px rgba(0,229,255,.13),inset 0 0 24px rgba(59,130,246,.1)!important}
 
 #janeMenuPanel{pointer-events:auto!important}.deck-menu-list{position:relative;z-index:3;height:calc(100% - 34px);display:grid!important;grid-template-rows:repeat(7,minmax(0,1fr));gap:5px;padding-top:7px}
@@ -184,15 +184,5 @@ button svg{fill:none!important;stroke:currentColor!important;stroke-width:1.25!i
 }
 
 
-/* Touch recovery: the active scene and its controls must remain hit-testable on Android WebView. */
-#janeSceneHost{pointer-events:auto!important;touch-action:pan-x pan-y!important}
-#janeSceneHost>[data-jane-scene][data-jane-active="true"]{pointer-events:auto!important}
-#janeSceneHost>[data-jane-scene][data-jane-active="true"] button,
-#janeSceneHost>[data-jane-scene][data-jane-active="true"] input,
-#janeSceneHost>[data-jane-scene][data-jane-active="true"] textarea,
-#janeSceneHost>[data-jane-scene][data-jane-active="true"] select,
-#janeSceneHost>[data-jane-scene][data-jane-active="true"] a,
-#janeSceneHost>[data-jane-scene][data-jane-active="true"] [role="button"]{
-  pointer-events:auto!important;touch-action:manipulation!important;
-}
+/* Touch handling stays with the native scene controls. The hologram stage is decorative and must not capture taps. */
 #janeMenuPanel,.deck-menu-list,.deck-nav-pod{pointer-events:auto!important;touch-action:manipulation!important}

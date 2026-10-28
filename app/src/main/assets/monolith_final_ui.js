@@ -217,10 +217,8 @@
   window.addEventListener("jane-scene-change", scheduleRefresh);
   window.addEventListener("resize", scheduleRefresh, { passive: true });
 
-  // Observe the large legacy DOM without queuing a separate refresh for every individual node
-  // mutation. Coalescing protects touch dispatch, the clock, and CSS animations on mobile WebView.
-  const observer = new MutationObserver(scheduleRefresh);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  // Refresh only on explicit scene and viewport changes. A document-wide observer can
+  // compete with the legacy command deck's own live DOM updates during startup.
 
   window.MonolithFinalUi = {
     version: VERSION,
