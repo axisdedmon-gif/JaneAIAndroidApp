@@ -204,10 +204,22 @@
     return true;
   }
 
-  window.addEventListener("jane-scene-change", () => requestAnimationFrame(refresh));
-  window.addEventListener("resize", () => requestAnimationFrame(refresh));
+  let refreshQueued = false;
+  function scheduleRefresh() {
+    if (refreshQueued) return;
+    refreshQueued = true;
+    requestAnimationFrame(() => {
+      refreshQueued = false;
+      refresh();
+    });
+  }
 
-  const observer = new MutationObserver(() => requestAnimationFrame(refresh));
+  window.addEventListener("jane-scene-change", scheduleRefresh);
+  window.addEventListener("resize", scheduleRefresh, { passive: true });
+
+  // Observe the large legacy DOM without queuing a separate refresh for every individual node
+  // mutation. Coalescing protects touch dispatch, the clock, and CSS animations on mobile WebView.
+  const observer = new MutationObserver(scheduleRefresh);
   observer.observe(document.documentElement, { childList: true, subtree: true });
 
   window.MonolithFinalUi = {
