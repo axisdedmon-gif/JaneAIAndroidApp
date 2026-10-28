@@ -258,9 +258,8 @@
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", refresh, { once: true });
   else refresh();
-  // Coalesce DOM changes into one refresh per frame. The scene is mutation-heavy during boot;
-  // synchronous observer refreshes can starve WebView input and animation frames on Android.
-  new MutationObserver(scheduleRefresh).observe(document.documentElement, { childList: true, subtree: true });
+  // Avoid a document-wide observer here. Scene initialization has its own router lifecycle;
+  // repeated DOM scans during boot can stall WebView input and the live HUD animation loop.
   window.addEventListener("jane-scene-change", scheduleRefresh);
   window.addEventListener("resize", scheduleRefresh, { passive: true });
   window.MonolithFunctionalityRuntime = { refresh, sendMessage, scheduleRefresh };
