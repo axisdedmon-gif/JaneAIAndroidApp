@@ -120,7 +120,8 @@ html,body{
   max-height:none!important;
   overflow:hidden!important;
   padding:0!important;
-  pointer-events:none!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
   background:
     radial-gradient(ellipse at 50% 69%,rgba(84,255,240,.16),transparent 23%),
     linear-gradient(rgba(84,255,240,.045) 1px,transparent 1px),
@@ -159,7 +160,8 @@ html,body{
   min-height:100%!important;
   margin:0!important;
   background:transparent!important;
-  pointer-events:none!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
 }
 
 #home .jane-containment-ring{

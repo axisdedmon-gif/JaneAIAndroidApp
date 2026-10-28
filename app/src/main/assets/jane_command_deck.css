@@ -1954,7 +1954,5 @@ body.jane-deck-launched #janeFxLayer {
   .jane-chat-grid { grid-template-columns: 52% 48%; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #janeSceneHost *, #janeSceneHost *::before, #janeSceneHost *::after,
-  #janeFxLayer, #janeFxLayer * { animation-duration: .001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
-}
+/* Monolith's motion toggle is controlled in-app. Do not globally collapse scene animations
+   because Android reports prefers-reduced-motion; that made the Command Chamber look static. */
